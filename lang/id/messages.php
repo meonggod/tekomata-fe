@@ -174,6 +174,15 @@ return [
         'unavailable_title' => 'Sebentar lagi kami kembali',
         'unavailable_body' => 'tekomata sedang kesulitan menghubungi layanannya. Silakan coba lagi sebentar.',
         'try_again' => 'Coba lagi',
+
+        // Modal kegagalan tak terduga (5xx) + blok kode referensi bersama.
+        'modal_title' => 'Terjadi kesalahan',
+        'modal_body' => 'Kami belum bisa menyelesaikannya barusan — masalahnya ada di sisi kami, bukan kamu. Tim kami sudah diberi tahu. Silakan coba lagi sebentar.',
+        'ref_label' => 'Kode referensi',
+        'ref_hint' => 'Sebutkan kode ini jika kamu menghubungi tim kami — ini membantu kami menemukan persis apa yang terjadi.',
+        'copy' => 'Salin',
+        'copied' => 'Tersalin',
+        'dismiss' => 'Tutup',
     ],
 
 ];

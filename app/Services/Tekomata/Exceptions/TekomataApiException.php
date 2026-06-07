@@ -36,6 +36,19 @@ class TekomataApiException extends RuntimeException
     }
 
     /**
+     * The correlation id the API stamps on every error body
+     * (`error.request_id`). It is the SAME id in our structured logs and Slack
+     * alert, so a user who quotes it lets support land on the exact failure.
+     * Not a secret. Null when the upstream body carried no id.
+     */
+    public function requestId(): ?string
+    {
+        $id = $this->body['error']['request_id'] ?? null;
+
+        return is_string($id) && $id !== '' ? $id : null;
+    }
+
+    /**
      * Localised, user-facing text for this error, resolved from the `errors`
      * catalog by code, with a safe generic fallback. Never leaks raw upstream
      * detail.

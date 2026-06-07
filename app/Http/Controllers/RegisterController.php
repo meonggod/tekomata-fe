@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Tekomata\AuthApi;
+use App\Services\Tekomata\Exceptions\ApiUnavailableException;
 use App\Services\Tekomata\Exceptions\TekomataApiException;
 use App\Services\Tekomata\Exceptions\ValidationException;
 use Illuminate\Http\RedirectResponse;
@@ -50,6 +51,10 @@ class RegisterController extends Controller
             return back()
                 ->withErrors($e->errors() ?: ['email' => __('errors.validation_failed')])
                 ->withInput($request->except('password'));
+        } catch (ApiUnavailableException $e) {
+            // 5xx / unreachable — not the user's input. Pop the "something went
+            // wrong" modal over the form with the request id, leave the form intact.
+            return $this->apiErrorModal($e, $request);
         } catch (TekomataApiException $e) {
             // e.g. rate_limited (per-IP limit / per-email resend cooldown).
             // Rendered from the error catalog by code, never raw upstream text.

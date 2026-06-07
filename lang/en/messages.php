@@ -173,6 +173,15 @@ return [
         'unavailable_title' => 'We’ll be right back',
         'unavailable_body' => 'tekomata is having trouble reaching its services right now. Please try again in a moment.',
         'try_again' => 'Try again',
+
+        // Unexpected-failure (5xx) modal + the shared reference-code block.
+        'modal_title' => 'Something went wrong',
+        'modal_body' => 'We couldn’t complete that just now — the problem is on our side, not yours. Our team has been notified. Please try again in a moment.',
+        'ref_label' => 'Reference code',
+        'ref_hint' => 'Quote this code if you contact our team — it helps us find exactly what happened.',
+        'copy' => 'Copy',
+        'copied' => 'Copied',
+        'dismiss' => 'Dismiss',
     ],
 
 ];

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Tekomata\AuthApi;
+use App\Services\Tekomata\Exceptions\ApiUnavailableException;
 use App\Services\Tekomata\Exceptions\TekomataApiException;
 use App\Services\Tekomata\TokenStore;
 use Illuminate\Http\RedirectResponse;
@@ -31,6 +32,10 @@ class CompanyController extends Controller
                 (string) $this->tokens->accessToken(),
                 $validated['company_id'],
             );
+        } catch (ApiUnavailableException $e) {
+            // 5xx / unreachable — pop the "something went wrong" modal over the
+            // dashboard with the request id; the active company is unchanged.
+            return $this->apiErrorModal($e, $request);
         } catch (TekomataApiException $e) {
             return back()->withErrors(['company_id' => $e->localizedMessage()]);
         }

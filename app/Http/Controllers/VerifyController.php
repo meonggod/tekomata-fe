@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Tekomata\AuthApi;
+use App\Services\Tekomata\Exceptions\ApiUnavailableException;
 use App\Services\Tekomata\Exceptions\TekomataApiException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,9 +30,14 @@ class VerifyController extends Controller
 
         try {
             $this->auth->verify($token);
+        } catch (ApiUnavailableException $e) {
+            // 5xx / unreachable is NOT a bad link — let it bubble to the global
+            // handler's branded error page (with the request id), so we don't
+            // mislead the user into re-registering for a fresh token.
+            throw $e;
         } catch (TekomataApiException) {
             // Unknown / used / expired (400) or missing (422) — all generic,
-            // no detail leaked. ApiUnavailableException bubbles to the 503 page.
+            // no detail leaked.
             return view('auth.verify', ['failed' => true]);
         }
 

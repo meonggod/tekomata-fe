@@ -23,5 +23,9 @@
             {{ $slot }}
         </main>
     </div>
+
+    {{-- Global, dismissible "something went wrong" modal for unexpected backend
+         failures (shown only when the api_error flash is present). --}}
+    <x-error-modal />
 </body>
 </html>
