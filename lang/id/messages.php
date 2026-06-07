@@ -116,8 +116,32 @@ return [
         'no_account' => 'Belum punya akun?',
         'email_label' => 'Email',
         'password_label' => 'Kata sandi',
+        'forgot_password' => 'Lupa kata sandi?',
         'remember_me' => 'Ingat saya',
         'submit' => 'Masuk',
+    ],
+
+    'forgot' => [
+        'title' => 'Lupa kata sandi?',
+        'subtitle' => 'Masukkan emailmu dan kami akan mengirim tautan untuk mengaturnya ulang.',
+        'email_label' => 'Email',
+        'submit' => 'Kirim tautan reset',
+        'secure_note' => 'Demi keamananmu, tautan reset akan kedaluwarsa dalam waktu singkat.',
+        'remembered' => 'Sudah ingat kata sandimu?',
+        'different_email' => 'Pakai email lain',
+        'check_email_title' => 'Cek emailmu',
+        'check_email_body' => 'Jika :email terhubung dengan sebuah akun, kami telah mengirimkan tautan reset kata sandi ke alamat itu. Klik tautannya untuk membuat kata sandi baru.',
+    ],
+
+    'reset' => [
+        'title' => 'Buat kata sandi baru',
+        'subtitle' => 'Pilih kata sandi baru untuk akunmu.',
+        'password_label' => 'Kata sandi baru',
+        'password_hint' => 'Gunakan minimal 8 karakter.',
+        'submit' => 'Reset kata sandi',
+        'success' => 'Kata sandimu sudah direset. Silakan masuk.',
+        'request_new' => 'Minta tautan baru',
+        'back_to_sign_in' => 'Kembali ke halaman masuk',
     ],
 
     'register' => [

@@ -26,6 +26,7 @@ return [
     // Auth.
     'auth' => [
         'invalid_token' => 'This verification link is invalid or has expired.',
+        'invalid_reset_token' => 'This password reset link is invalid, has expired, or has already been used.',
         'invalid_credentials' => 'Invalid email or password.',
         'email_not_verified' => 'Please verify your email first — check your inbox for the link.',
         'invalid_refresh_token' => 'Your session has expired. Please sign in again.',

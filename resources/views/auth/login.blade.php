@@ -41,9 +41,14 @@
 
                 {{-- Password --}}
                 <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700">
-                        {{ __('messages.auth.password_label') }}
-                    </label>
+                    <div class="flex items-center justify-between">
+                        <label for="password" class="block text-sm font-medium text-gray-700">
+                            {{ __('messages.auth.password_label') }}
+                        </label>
+                        <a href="{{ route('password.request') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                            {{ __('messages.auth.forgot_password') }}
+                        </a>
+                    </div>
                     <div class="relative mt-1.5">
                         <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">

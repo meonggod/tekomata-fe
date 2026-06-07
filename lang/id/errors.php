@@ -26,6 +26,7 @@ return [
     // Autentikasi.
     'auth' => [
         'invalid_token' => 'Tautan verifikasi ini tidak valid atau sudah kedaluwarsa.',
+        'invalid_reset_token' => 'Tautan reset kata sandi ini tidak valid, sudah kedaluwarsa, atau sudah pernah dipakai.',
         'invalid_credentials' => 'Email atau kata sandi salah.',
         'email_not_verified' => 'Verifikasi emailmu dulu — cek kotak masuk untuk tautannya.',
         'invalid_refresh_token' => 'Sesimu sudah berakhir. Silakan masuk kembali.',

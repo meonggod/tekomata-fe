@@ -115,8 +115,32 @@ return [
         'no_account' => 'Don’t have an account?',
         'email_label' => 'Email',
         'password_label' => 'Password',
+        'forgot_password' => 'Forgot password?',
         'remember_me' => 'Remember me',
         'submit' => 'Sign in',
+    ],
+
+    'forgot' => [
+        'title' => 'Forgot your password?',
+        'subtitle' => 'Enter your email and we’ll send you a link to reset it.',
+        'email_label' => 'Email',
+        'submit' => 'Send reset link',
+        'secure_note' => 'For your security, the reset link expires after a short time.',
+        'remembered' => 'Remembered your password?',
+        'different_email' => 'Use a different email',
+        'check_email_title' => 'Check your email',
+        'check_email_body' => 'If :email belongs to an account, we’ve sent a password reset link to it. Click the link to set a new password.',
+    ],
+
+    'reset' => [
+        'title' => 'Set a new password',
+        'subtitle' => 'Choose a new password for your account.',
+        'password_label' => 'New password',
+        'password_hint' => 'Use at least 8 characters.',
+        'submit' => 'Reset password',
+        'success' => 'Your password has been reset. Please sign in.',
+        'request_new' => 'Request a new link',
+        'back_to_sign_in' => 'Back to sign in',
     ],
 
     'register' => [

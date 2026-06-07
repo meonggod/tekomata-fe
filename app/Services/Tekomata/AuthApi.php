@@ -45,6 +45,37 @@ class AuthApi
     }
 
     /**
+     * Start a password reset for the given email. The API always responds
+     * generically (HTTP 202) whether or not the email exists — no account
+     * enumeration. If it exists, a single-use, expiring reset link is emailed.
+     * Rate-limited per IP and throttled per email upstream.
+     *
+     * @return array<string,mixed>
+     */
+    public function forgotPassword(string $email): array
+    {
+        return $this->client->post('/api/v1/auth/password/forgot', [
+            'email' => $email,
+        ]);
+    }
+
+    /**
+     * Verify a single-use, time-boxed reset token and set the new password. On
+     * success the API consumes the token and revokes every existing refresh
+     * session for that user. Unknown/used/expired tokens are rejected (400
+     * `auth.invalid_reset_token`). Does NOT issue a JWT — login is a separate step.
+     *
+     * @return array<string,mixed>
+     */
+    public function resetPassword(string $token, string $password): array
+    {
+        return $this->client->post('/api/v1/auth/password/reset', [
+            'token' => $token,
+            'password' => $password,
+        ]);
+    }
+
+    /**
      * Exchange email + password for an access/refresh pair (scoped to the
      * user's active company).
      *
