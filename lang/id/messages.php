@@ -13,8 +13,15 @@
 return [
 
     'nav' => [
-        'sign_in' => 'Masuk',
-        'get_started' => 'Mulai sekarang',
+        'sign_in'      => 'Masuk',
+        'get_started'  => 'Mulai sekarang',
+        'dashboard'    => 'Dasbor',
+        'products'     => 'Produk',
+        'categories'   => 'Kategori',
+        'warehouses'   => 'Gudang',
+        'currencies'   => 'Mata Uang',
+        'sign_out'     => 'Keluar',
+        'open_sidebar' => 'Buka navigasi',
     ],
 
     'landing' => [

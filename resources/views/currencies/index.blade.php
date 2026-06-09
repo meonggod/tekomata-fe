@@ -1,27 +1,20 @@
 <x-layouts.app :title="__('messages.currencies.title') . ' · tekomata'">
-    <x-slot:header>
-        <div class="flex items-center justify-between">
-            <h1 class="text-lg font-semibold text-gray-900">{{ __('messages.currencies.title') }}</h1>
-            <div class="flex items-center gap-4">
-                <a href="{{ route('dashboard') }}" class="text-sm text-gray-500 hover:text-gray-900">
-                    {{ __('messages.currencies.back_to_dashboard') }}
-                </a>
-                <x-lang-switcher />
-            </div>
-        </div>
-    </x-slot:header>
+    <x-slot:breadcrumbs>
+        <x-breadcrumb :items="[
+            ['label' => __('messages.nav.dashboard'), 'url' => route('dashboard')],
+            ['label' => __('messages.nav.currencies')],
+        ]" />
+    </x-slot:breadcrumbs>
 
     <div class="mx-auto w-full max-w-3xl">
         <p class="text-sm text-gray-600">{{ __('messages.currencies.subtitle') }}</p>
 
-        {{-- Success of an enable / disable / set-default action. --}}
         @if (session('status'))
             <div class="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
                 {{ session('status') }}
             </div>
         @endif
 
-        {{-- Localised, code-derived failure (e.g. can't disable the default). --}}
         @error('currency')
             <div class="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ $message }}</div>
         @enderror
@@ -38,12 +31,10 @@
                 @php($isDefault = (bool) ($enabledRow['is_default'] ?? false))
 
                 <div class="flex flex-wrap items-center gap-4 border-b border-gray-100 px-5 py-4 last:border-b-0 {{ $isEnabled ? '' : 'bg-gray-50/50' }}">
-                    {{-- Symbol glyph --}}
                     <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-base font-semibold text-indigo-700">
                         {{ $currency['symbol'] ?? ($currency['symbol_native'] ?? $code) }}
                     </span>
 
-                    {{-- Code + name + minor units --}}
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-2">
                             <span class="font-semibold text-gray-900">{{ $code }}</span>
@@ -57,7 +48,6 @@
                         @endisset
                     </div>
 
-                    {{-- Actions --}}
                     <div class="flex shrink-0 items-center gap-2">
                         @if (! $isEnabled)
                             <form method="POST" action="{{ route('currencies.enable') }}">
@@ -87,7 +77,6 @@
                                     </button>
                                 </form>
                             @else
-                                {{-- The default can't be disabled — set another default first. --}}
                                 <span class="inline-flex items-center gap-1.5 text-xs text-gray-400" title="{{ __('messages.currencies.default_locked_hint') }}">
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 0h10.5a2.25 2.25 0 0 1 2.25 2.25v6.75a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25v-6.75a2.25 2.25 0 0 1 2.25-2.25Z" />
@@ -109,9 +98,6 @@
             </p>
         @endif
 
-        {{-- The product-in-use guard depends on a product table that doesn't
-             exist yet (deferred to the CRUD-product story); only the default is
-             protected for now. --}}
         <p class="mt-4 text-xs text-gray-400">{{ __('messages.currencies.in_use_note') }}</p>
     </div>
 </x-layouts.app>

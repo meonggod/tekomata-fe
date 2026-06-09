@@ -1,15 +1,11 @@
 <x-layouts.app :title="__('messages.products.create_title') . ' · tekomata'">
-    <x-slot:header>
-        <div class="flex items-center justify-between">
-            <h1 class="text-lg font-semibold text-gray-900">{{ __('messages.products.create_title') }}</h1>
-            <div class="flex items-center gap-4">
-                <a href="{{ route('products.index') }}" class="text-sm text-gray-500 hover:text-gray-900">
-                    {{ __('messages.products.back_to_products') }}
-                </a>
-                <x-lang-switcher />
-            </div>
-        </div>
-    </x-slot:header>
+    <x-slot:breadcrumbs>
+        <x-breadcrumb :items="[
+            ['label' => __('messages.nav.dashboard'), 'url' => route('dashboard')],
+            ['label' => __('messages.nav.products'),  'url' => route('products.index')],
+            ['label' => __('messages.products.create_title')],
+        ]" />
+    </x-slot:breadcrumbs>
 
     <div class="mx-auto w-full max-w-xl">
         @error('product')
@@ -53,22 +49,13 @@
                         <label for="unit" class="block text-sm font-medium text-gray-700">
                             {{ __('messages.products.unit_label') }} <span class="text-red-500">*</span>
                         </label>
-                        <input type="text" id="unit" name="unit" value="{{ old('unit') }}" required
-                               list="unit-suggestions"
-                               class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                        <datalist id="unit-suggestions">
-                            <option value="piece">
-                            <option value="box">
-                            <option value="kg">
-                            <option value="liter">
-                            <option value="meter">
-                            <option value="pack">
-                            <option value="dozen">
-                            <option value="carton">
-                            <option value="bag">
-                            <option value="can">
-                            <option value="bottle">
-                        </datalist>
+                        <select id="unit" name="unit" required
+                                class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <option value="">—</option>
+                            @foreach (['piece','box','kg','liter','meter','pack','dozen','carton','bag','can','bottle'] as $u)
+                                <option value="{{ $u }}" {{ old('unit') === $u ? 'selected' : '' }}>{{ $u }}</option>
+                            @endforeach
+                        </select>
                         <p class="mt-1 text-xs text-gray-400">{{ __('messages.products.unit_hint') }}</p>
                         @error('unit') <p class="mt-1 text-xs text-red-600">{{ $message }}</p> @enderror
                     </div>

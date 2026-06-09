@@ -95,6 +95,18 @@ class TokenStore
     }
 
     /**
+     * Update just the active-company record without touching the token pair.
+     * Used to enrich the stored company with a name once the companies list
+     * has been fetched (e.g. on the first dashboard load after login).
+     *
+     * @param  array<string,mixed>  $company
+     */
+    public function putActiveCompany(array $company): void
+    {
+        $this->session->put(self::COMPANY, $company);
+    }
+
+    /**
      * Drop all auth state (logout / failed refresh).
      */
     public function forget(): void

@@ -1,15 +1,11 @@
 <x-layouts.app :title="__('messages.warehouses.create_title') . ' · tekomata'">
-    <x-slot:header>
-        <div class="flex items-center justify-between">
-            <h1 class="text-lg font-semibold text-gray-900">{{ __('messages.warehouses.create_title') }}</h1>
-            <div class="flex items-center gap-4">
-                <a href="{{ route('warehouses.index') }}" class="text-sm text-gray-500 hover:text-gray-900">
-                    {{ __('messages.warehouses.back_to_products') }}
-                </a>
-                <x-lang-switcher />
-            </div>
-        </div>
-    </x-slot:header>
+    <x-slot:breadcrumbs>
+        <x-breadcrumb :items="[
+            ['label' => __('messages.nav.dashboard'),   'url' => route('dashboard')],
+            ['label' => __('messages.nav.warehouses'),  'url' => route('warehouses.index')],
+            ['label' => __('messages.warehouses.create_title')],
+        ]" />
+    </x-slot:breadcrumbs>
 
     <div class="mx-auto w-full max-w-xl">
         @error('warehouse')

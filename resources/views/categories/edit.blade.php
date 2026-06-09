@@ -1,15 +1,12 @@
 <x-layouts.app :title="__('messages.categories.edit_title') . ' · tekomata'">
-    <x-slot:header>
-        <div class="flex items-center justify-between">
-            <h1 class="text-lg font-semibold text-gray-900">{{ __('messages.categories.edit_title') }}</h1>
-            <div class="flex items-center gap-4">
-                <a href="{{ route('categories.show', $category['id']) }}" class="text-sm text-gray-500 hover:text-gray-900">
-                    {{ __('messages.categories.back_to_categories') }}
-                </a>
-                <x-lang-switcher />
-            </div>
-        </div>
-    </x-slot:header>
+    <x-slot:breadcrumbs>
+        <x-breadcrumb :items="[
+            ['label' => __('messages.nav.dashboard'),   'url' => route('dashboard')],
+            ['label' => __('messages.nav.categories'),  'url' => route('categories.index')],
+            ['label' => $category['name'] ?? '',        'url' => route('categories.show', $category['id'])],
+            ['label' => __('messages.categories.edit_title')],
+        ]" />
+    </x-slot:breadcrumbs>
 
     <div class="mx-auto w-full max-w-xl">
         @error('category')

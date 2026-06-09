@@ -1,21 +1,10 @@
 <x-layouts.app :title="__('messages.products.title') . ' · tekomata'">
-    <x-slot:header>
-        <div class="flex items-center justify-between">
-            <h1 class="text-lg font-semibold text-gray-900">{{ __('messages.products.title') }}</h1>
-            <div class="flex items-center gap-4">
-                <a href="{{ route('categories.index') }}" class="text-sm text-gray-500 hover:text-gray-900">
-                    {{ __('messages.products.categories') }}
-                </a>
-                <a href="{{ route('warehouses.index') }}" class="text-sm text-gray-500 hover:text-gray-900">
-                    {{ __('messages.products.warehouses') }}
-                </a>
-                <a href="{{ route('dashboard') }}" class="text-sm text-gray-500 hover:text-gray-900">
-                    {{ __('messages.products.back_to_dashboard') }}
-                </a>
-                <x-lang-switcher />
-            </div>
-        </div>
-    </x-slot:header>
+    <x-slot:breadcrumbs>
+        <x-breadcrumb :items="[
+            ['label' => __('messages.nav.dashboard'), 'url' => route('dashboard')],
+            ['label' => __('messages.nav.products')],
+        ]" />
+    </x-slot:breadcrumbs>
 
     <div class="mx-auto w-full max-w-5xl">
         <div class="flex items-center justify-between">

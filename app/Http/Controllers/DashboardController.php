@@ -28,6 +28,13 @@ class DashboardController extends Controller
             $data = $this->auth->companies((string) $this->tokens->accessToken());
             $companies = $data['companies'] ?? [];
             $activeId = $data['active_company_id'] ?? $activeId;
+
+            // Enrich the session with the active company's name so the sidebar
+            // can display it on all subsequent pages without an extra API call.
+            $activeCompany = collect($companies)->firstWhere('company_id', $activeId);
+            if ($activeCompany) {
+                $this->tokens->putActiveCompany($activeCompany);
+            }
         } catch (TekomataApiException) {
             // Non-fatal: show the dashboard without the switcher.
         }

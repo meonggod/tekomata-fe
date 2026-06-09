@@ -1,15 +1,12 @@
 <x-layouts.app :title="__('messages.products.movements_title') . ' · tekomata'">
-    <x-slot:header>
-        <div class="flex items-center justify-between">
-            <h1 class="text-lg font-semibold text-gray-900">{{ __('messages.products.movements_title') }}</h1>
-            <div class="flex items-center gap-4">
-                <a href="{{ route('products.show', $product['id']) }}" class="text-sm text-gray-500 hover:text-gray-900">
-                    {{ __('messages.products.back_to_product') }}
-                </a>
-                <x-lang-switcher />
-            </div>
-        </div>
-    </x-slot:header>
+    <x-slot:breadcrumbs>
+        <x-breadcrumb :items="[
+            ['label' => __('messages.nav.dashboard'),          'url' => route('dashboard')],
+            ['label' => __('messages.nav.products'),           'url' => route('products.index')],
+            ['label' => $product['name'] ?? '',                'url' => route('products.show', $product['id'])],
+            ['label' => __('messages.products.movements_title')],
+        ]" />
+    </x-slot:breadcrumbs>
 
     <div class="mx-auto w-full max-w-4xl space-y-4">
         <p class="text-sm text-gray-600">

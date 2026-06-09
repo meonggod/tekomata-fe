@@ -1,4 +1,4 @@
-<x-layouts.app :title="__('messages.reset.title') . ' · tekomata'">
+<x-layouts.public :title="__('messages.reset.title') . ' · tekomata'">
     <x-slot:header>
         <x-site-header cta="sign_in" />
     </x-slot:header>
@@ -64,4 +64,4 @@
     </div>
 
     <x-site-footer />
-</x-layouts.app>
+</x-layouts.public>

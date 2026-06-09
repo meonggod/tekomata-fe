@@ -12,8 +12,15 @@
 return [
 
     'nav' => [
-        'sign_in' => 'Sign in',
-        'get_started' => 'Get started',
+        'sign_in'      => 'Sign in',
+        'get_started'  => 'Get started',
+        'dashboard'    => 'Dashboard',
+        'products'     => 'Products',
+        'categories'   => 'Categories',
+        'warehouses'   => 'Warehouses',
+        'currencies'   => 'Currencies',
+        'sign_out'     => 'Sign out',
+        'open_sidebar' => 'Open navigation',
     ],
 
     'landing' => [

@@ -212,3 +212,17 @@ function enhanceCountrySelects() {
 }
 
 document.addEventListener('DOMContentLoaded', enhanceCountrySelects);
+
+// Mobile sidebar toggle
+(function () {
+    const sidebar  = document.getElementById('app-sidebar');
+    const overlay  = document.getElementById('sidebar-overlay');
+    const openBtn  = document.getElementById('sidebar-open');
+    if (!sidebar || !overlay || !openBtn) return;
+
+    const open  = () => { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); };
+    const close = () => { sidebar.classList.add('-translate-x-full');    overlay.classList.add('hidden'); };
+
+    openBtn.addEventListener('click', open);
+    overlay.addEventListener('click', close);
+})();

@@ -1,4 +1,4 @@
-<x-layouts.app :title="__('messages.register.verify_failed_title') . ' · tekomata'">
+<x-layouts.public :title="__('messages.register.verify_failed_title') . ' · tekomata'">
     <x-slot:header>
         <div class="flex items-center justify-between">
             <a href="{{ route('home') }}" class="text-lg font-bold tracking-tight text-gray-900">tekomata</a>
@@ -20,4 +20,4 @@
             </a>
         </div>
     </div>
-</x-layouts.app>
+</x-layouts.public>
