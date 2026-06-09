@@ -80,6 +80,24 @@
                         @enderror
                     </div>
 
+                    {{-- Country (optional). Sets the entity's country_code, which
+                         derives the default currency + WhatsApp dial code. Only
+                         shown when the public catalog returned countries. --}}
+                    @if (! empty($countries))
+                        <div>
+                            <label for="country_code" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+                                {{ __('messages.register.country_label') }}
+                                <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-normal text-gray-500">{{ __('messages.register.country_optional') }}</span>
+                            </label>
+                            <x-country-select :countries="$countries" name="country_code" />
+                            @error('country_code')
+                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
+                            @else
+                                <p class="mt-1.5 text-xs text-gray-500">{{ __('messages.register.country_hint') }}</p>
+                            @enderror
+                        </div>
+                    @endif
+
                     <button type="submit"
                             class="group flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
                         {{ __('messages.register.submit') }}

@@ -32,12 +32,46 @@ return [
         'invalid_refresh_token' => 'Your session has expired. Please sign in again.',
     ],
 
+    // Catalog (countries / currencies master lists).
+    'catalog' => [
+        'currency_not_active' => 'That currency isn’t available on the platform yet.',
+    ],
+
+    // Per-company currency enablement.
+    'company' => [
+        'currency_already_enabled' => 'That currency is already enabled for your company.',
+        'currency_not_enabled' => 'That currency isn’t enabled for your company.',
+        'cannot_disable_default_currency' => 'You can’t disable your default currency — set another default first.',
+    ],
+
+    // Categories.
+    'category' => [
+        'not_found' => 'Category not found.',
+        'name_taken' => 'A category with that name already exists.',
+    ],
+
+    // Products.
+    'product' => [
+        'not_found' => 'Product not found.',
+        'sku_taken' => 'That SKU is already in use — choose a different one.',
+    ],
+
+    // Warehouses.
+    'warehouse' => [
+        'not_found' => 'Warehouse not found.',
+        'name_taken' => 'A warehouse with that name already exists.',
+    ],
+
     // Per-field validation codes (used inside error.fields[].code).
     'validation' => [
-        'required' => 'This field is required.',
-        'email' => 'Please enter a valid email address.',
-        'too_short' => 'Must be at least :min characters.',
-        'too_long' => 'Must be no more than :max characters.',
+        'required'             => 'This field is required.',
+        'email'                => 'Please enter a valid email address.',
+        'too_short'            => 'Must be at least :min characters.',
+        'too_long'             => 'Must be no more than :max characters.',
+        'invalid_country'      => 'Please choose a valid country.',
+        'decimal'              => 'Please enter a valid decimal number.',
+        'fraction_not_allowed' => 'This unit doesn\'t allow fractional quantities.',
+        'invalid_value'        => 'Please select a valid option.',
     ],
 
 ];

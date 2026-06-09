@@ -1,7 +1,11 @@
 <?php
 
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\RegisterController;
@@ -88,4 +92,43 @@ Route::post('/logout', function (Request $request, TokenStore $tokens, AuthApi $
 Route::middleware('auth.api')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/companies/switch', [CompanyController::class, 'switch'])->name('companies.switch');
+
+    // Currency settings: browse the catalog and configure the active company's
+    // enabled set + single default. The catalog GET is public; the mutations
+    // below are JWT-scoped to the active company (carried in the token).
+    // Products: list, CRUD, stock adjustment, movement history.
+    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+    Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+    Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
+    Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
+    Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::post('/products/{id}/stock', [ProductController::class, 'adjustStock'])->name('products.stock');
+    Route::get('/products/{id}/movements', [ProductController::class, 'movements'])->name('products.movements');
+    Route::put('/products/{id}/categories', [ProductController::class, 'updateCategories'])->name('products.categories');
+
+    // Categories: list, CRUD, product grouping.
+    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+    Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
+    Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+    Route::get('/categories/{id}', [CategoryController::class, 'show'])->name('categories.show');
+    Route::get('/categories/{id}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
+    Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update');
+    Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+    Route::post('/categories/{id}/products', [CategoryController::class, 'addProducts'])->name('categories.products.add');
+    Route::delete('/categories/{id}/products/{productId}', [CategoryController::class, 'removeProduct'])->name('categories.products.remove');
+
+    // Warehouses: list, CRUD.
+    Route::get('/warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
+    Route::get('/warehouses/create', [WarehouseController::class, 'create'])->name('warehouses.create');
+    Route::post('/warehouses', [WarehouseController::class, 'store'])->name('warehouses.store');
+    Route::get('/warehouses/{id}/edit', [WarehouseController::class, 'edit'])->name('warehouses.edit');
+    Route::put('/warehouses/{id}', [WarehouseController::class, 'update'])->name('warehouses.update');
+    Route::delete('/warehouses/{id}', [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
+
+    Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
+    Route::post('/settings/currencies', [CurrencyController::class, 'enable'])->name('currencies.enable');
+    Route::put('/settings/currencies/{code}/default', [CurrencyController::class, 'setDefault'])->name('currencies.default');
+    Route::delete('/settings/currencies/{code}', [CurrencyController::class, 'disable'])->name('currencies.disable');
 });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Tekomata\AuthApi;
+use App\Services\Tekomata\CatalogApi;
 use App\Services\Tekomata\Exceptions\ApiUnavailableException;
 use App\Services\Tekomata\Exceptions\TekomataApiException;
 use App\Services\Tekomata\Exceptions\ValidationException;
@@ -18,11 +19,25 @@ use Illuminate\View\View;
  */
 class RegisterController extends Controller
 {
-    public function __construct(private readonly AuthApi $auth) {}
+    public function __construct(
+        private readonly AuthApi $auth,
+        private readonly CatalogApi $catalog,
+    ) {}
 
     public function show(): View
     {
-        return view('auth.register');
+        // The country dropdown is an optional convenience — if the public
+        // catalog is unreachable, signup must still work, so degrade to an
+        // empty list (the field simply isn't offered) rather than a dead page.
+        $countries = [];
+
+        try {
+            $countries = $this->catalog->countries();
+        } catch (TekomataApiException) {
+            // Non-fatal: render the form without the country selector.
+        }
+
+        return view('auth.register', ['countries' => $countries]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -33,6 +48,9 @@ class RegisterController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'email:rfc', 'max:254'],
             'password' => ['required', 'string', 'min:8', 'max:72'],
+            // Optional, backward-compatible. ISO 3166-1 alpha-2; the Go API is
+            // the authority on which codes are active (422 invalid_country).
+            'country_code' => ['nullable', 'string', 'size:2'],
         ], [
             'email.required' => __('errors.validation.required'),
             'email.email' => __('errors.validation.email'),
@@ -43,9 +61,10 @@ class RegisterController extends Controller
         ]);
 
         $email = strtolower(trim($validated['email']));
+        $countryCode = isset($validated['country_code']) ? strtoupper($validated['country_code']) : null;
 
         try {
-            $this->auth->register($email, $validated['password']);
+            $this->auth->register($email, $validated['password'], $countryCode);
         } catch (ValidationException $e) {
             // Per-field codes from the API, localised + keyed to the form inputs.
             return back()

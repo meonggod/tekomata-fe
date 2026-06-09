@@ -20,14 +20,25 @@ class AuthApi
      * email already exists, so the response is always generic (HTTP 202). No
      * real account is created until the link is verified.
      *
+     * An optional `country_code` (ISO 3166-1 alpha-2) is applied to the new user
+     * and first company at verify time; the country's default currency (if
+     * active) is enabled as the company default. Omitted when blank — the field
+     * is backward-compatible.
+     *
      * @return array<string,mixed>
      */
-    public function register(string $email, string $password): array
+    public function register(string $email, string $password, ?string $countryCode = null): array
     {
-        return $this->client->post('/api/v1/auth/register', [
+        $payload = [
             'email' => $email,
             'password' => $password,
-        ]);
+        ];
+
+        if ($countryCode !== null && $countryCode !== '') {
+            $payload['country_code'] = $countryCode;
+        }
+
+        return $this->client->post('/api/v1/auth/register', $payload);
     }
 
     /**

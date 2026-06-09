@@ -3,6 +3,12 @@
         <div class="flex items-center justify-between">
             <h1 class="text-lg font-semibold text-gray-900">{{ __('messages.dashboard.title') }}</h1>
             <div class="flex items-center gap-4">
+                <a href="{{ route('products.index') }}" class="text-sm font-medium text-gray-600 hover:text-gray-900">
+                    {{ __('messages.dashboard.products') }}
+                </a>
+                <a href="{{ route('currencies.index') }}" class="text-sm font-medium text-gray-600 hover:text-gray-900">
+                    {{ __('messages.dashboard.currencies') }}
+                </a>
                 <x-company-switcher :companies="$companies ?? []" :activeId="$activeCompanyId ?? null" />
                 <x-lang-switcher />
                 <form method="POST" action="{{ route('logout') }}">

@@ -32,12 +32,46 @@ return [
         'invalid_refresh_token' => 'Sesimu sudah berakhir. Silakan masuk kembali.',
     ],
 
+    // Katalog (daftar master negara / mata uang).
+    'catalog' => [
+        'currency_not_active' => 'Mata uang itu belum tersedia di platform.',
+    ],
+
+    // Pengaktifan mata uang per perusahaan.
+    'company' => [
+        'currency_already_enabled' => 'Mata uang itu sudah aktif untuk perusahaanmu.',
+        'currency_not_enabled' => 'Mata uang itu belum aktif untuk perusahaanmu.',
+        'cannot_disable_default_currency' => 'Kamu tidak bisa menonaktifkan mata uang default — tetapkan default lain dulu.',
+    ],
+
+    // Kategori.
+    'category' => [
+        'not_found' => 'Kategori tidak ditemukan.',
+        'name_taken' => 'Kategori dengan nama itu sudah ada.',
+    ],
+
+    // Produk.
+    'product' => [
+        'not_found' => 'Produk tidak ditemukan.',
+        'sku_taken' => 'SKU itu sudah dipakai — pilih yang lain.',
+    ],
+
+    // Gudang.
+    'warehouse' => [
+        'not_found' => 'Gudang tidak ditemukan.',
+        'name_taken' => 'Gudang dengan nama itu sudah ada.',
+    ],
+
     // Kode validasi per-field (dipakai di error.fields[].code).
     'validation' => [
-        'required' => 'Kolom ini wajib diisi.',
-        'email' => 'Mohon masukkan alamat email yang valid.',
-        'too_short' => 'Minimal :min karakter.',
-        'too_long' => 'Maksimal :max karakter.',
+        'required'             => 'Kolom ini wajib diisi.',
+        'email'                => 'Mohon masukkan alamat email yang valid.',
+        'too_short'            => 'Minimal :min karakter.',
+        'too_long'             => 'Maksimal :max karakter.',
+        'invalid_country'      => 'Mohon pilih negara yang valid.',
+        'decimal'              => 'Mohon masukkan angka desimal yang valid.',
+        'fraction_not_allowed' => 'Satuan ini tidak mengizinkan jumlah desimal.',
+        'invalid_value'        => 'Mohon pilih opsi yang valid.',
     ],
 
 ];
