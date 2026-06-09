@@ -17,6 +17,12 @@
             'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />',
         ],
         [
+            'label' => __('messages.nav.catalog_import'),
+            'route' => 'catalog.import',
+            'match' => 'catalog.*',
+            'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />',
+        ],
+        [
             'label' => __('messages.nav.categories'),
             'route' => 'categories.index',
             'match' => 'categories.*',

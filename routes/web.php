@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CatalogImportController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CurrencyController;
@@ -126,6 +127,10 @@ Route::middleware('auth.api')->group(function () {
     Route::get('/warehouses/{id}/edit', [WarehouseController::class, 'edit'])->name('warehouses.edit');
     Route::put('/warehouses/{id}', [WarehouseController::class, 'update'])->name('warehouses.update');
     Route::delete('/warehouses/{id}', [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
+
+    // Catalog: bulk import + browse.
+    Route::get('/catalog/import', [CatalogImportController::class, 'index'])->name('catalog.import');
+    Route::post('/catalog/import', [CatalogImportController::class, 'store'])->name('catalog.import.store');
 
     Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
     Route::post('/settings/currencies', [CurrencyController::class, 'enable'])->name('currencies.enable');
