@@ -71,6 +71,13 @@ plaintext logs or responses — **masked** on read (`••••0001`), **not l
 server log for the raw values = 0). *Column-level encryption-at-rest deferred (no key-mgmt infra);
 agreed during review.*
 
+> **Frontend (this repo) — done.**
+> - `EnsureOnboarded` middleware (`ensure.onboarded` alias): checks `/onboarding/requirements` once per session and redirects gated users to the onboarding flow. Gate flag cached in session; lifted when KYB succeeds.
+> - `OnboardingController`: `/onboarding` (router), `/onboarding/kyc` (GET+POST), `/onboarding/kyb` (GET+POST). Routes sit inside `auth.api` but outside `ensure.onboarded` to prevent redirect loops.
+> - `OnboardingApi` service: thin wrappers for the three onboarding endpoints.
+> - Two-step Blade forms (`resources/views/onboarding/kyc.blade.php`, `kyb.blade.php`) with progress indicator, per-field inline errors, and `old()` repopulation.
+> - All strings in `lang/en/messages.php` + `lang/id/messages.php` under `onboarding.*`.
+
 ## Implementation notes (done)
 - Migration `00009_kyc_kyb.sql`: `kyc_profile` (UNIQUE `user_id`) + `kyb_profile`
   (UNIQUE `company_id`), each with a `status` column.

@@ -5,13 +5,14 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\LoginController;
+use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\VerifyController;
+use App\Http\Controllers\WarehouseController;
 use App\Services\Tekomata\AuthApi;
 use App\Services\Tekomata\Exceptions\TekomataApiException;
 use App\Services\Tekomata\TokenStore;
@@ -91,49 +92,61 @@ Route::post('/logout', function (Request $request, TokenStore $tokens, AuthApi $
 
 // Authenticated area — gated by the Go API session (see EnsureAuthenticated).
 Route::middleware('auth.api')->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::post('/companies/switch', [CompanyController::class, 'switch'])->name('companies.switch');
 
-    // Currency settings: browse the catalog and configure the active company's
-    // enabled set + single default. The catalog GET is public; the mutations
-    // below are JWT-scoped to the active company (carried in the token).
-    // Products: list, CRUD, stock adjustment, movement history.
-    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
-    Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
-    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
-    Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
-    Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
-    Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
-    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
-    Route::post('/products/{id}/stock', [ProductController::class, 'adjustStock'])->name('products.stock');
-    Route::get('/products/{id}/movements', [ProductController::class, 'movements'])->name('products.movements');
-    Route::put('/products/{id}/categories', [ProductController::class, 'updateCategories'])->name('products.categories');
+    // Onboarding flow — authenticated but NOT gated by EnsureOnboarded (would loop).
+    Route::get('/onboarding', [OnboardingController::class, 'show'])->name('onboarding.show');
+    Route::get('/onboarding/kyc', [OnboardingController::class, 'showKyc'])->name('onboarding.kyc');
+    Route::post('/onboarding/kyc', [OnboardingController::class, 'storeKyc'])->name('onboarding.kyc.store');
+    Route::get('/onboarding/kyb', [OnboardingController::class, 'showKyb'])->name('onboarding.kyb');
+    Route::post('/onboarding/kyb', [OnboardingController::class, 'storeKyb'])->name('onboarding.kyb.store');
 
-    // Categories: list, CRUD, product grouping.
-    Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
-    Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
-    Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
-    Route::get('/categories/{id}', [CategoryController::class, 'show'])->name('categories.show');
-    Route::get('/categories/{id}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
-    Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update');
-    Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->name('categories.destroy');
-    Route::post('/categories/{id}/products', [CategoryController::class, 'addProducts'])->name('categories.products.add');
-    Route::delete('/categories/{id}/products/{productId}', [CategoryController::class, 'removeProduct'])->name('categories.products.remove');
+    // Core dashboard + product routes — require completed onboarding.
+    Route::middleware('ensure.onboarded')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::post('/companies/switch', [CompanyController::class, 'switch'])->name('companies.switch');
 
-    // Warehouses: list, CRUD.
-    Route::get('/warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
-    Route::get('/warehouses/create', [WarehouseController::class, 'create'])->name('warehouses.create');
-    Route::post('/warehouses', [WarehouseController::class, 'store'])->name('warehouses.store');
-    Route::get('/warehouses/{id}/edit', [WarehouseController::class, 'edit'])->name('warehouses.edit');
-    Route::put('/warehouses/{id}', [WarehouseController::class, 'update'])->name('warehouses.update');
-    Route::delete('/warehouses/{id}', [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
+        // Currency settings: browse the catalog and configure the active company's
+        // enabled set + single default. The catalog GET is public; the mutations
+        // below are JWT-scoped to the active company (carried in the token).
+        // Products: list, CRUD, stock adjustment, movement history.
+        Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+        Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+        Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
+        Route::get('/products/{id}/edit', [ProductController::class, 'edit'])->name('products.edit');
+        Route::put('/products/{id}', [ProductController::class, 'update'])->name('products.update');
+        Route::delete('/products/{id}', [ProductController::class, 'destroy'])->name('products.destroy');
+        Route::post('/products/{id}/stock', [ProductController::class, 'adjustStock'])->name('products.stock');
+        Route::get('/products/{id}/movements', [ProductController::class, 'movements'])->name('products.movements');
+        Route::put('/products/{id}/categories', [ProductController::class, 'updateCategories'])->name('products.categories');
 
-    // Catalog: bulk import + browse.
-    Route::get('/catalog/import', [CatalogImportController::class, 'index'])->name('catalog.import');
-    Route::post('/catalog/import', [CatalogImportController::class, 'store'])->name('catalog.import.store');
+        // Categories: list, CRUD, product grouping.
+        Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+        Route::get('/categories/create', [CategoryController::class, 'create'])->name('categories.create');
+        Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+        Route::get('/categories/{id}', [CategoryController::class, 'show'])->name('categories.show');
+        Route::get('/categories/{id}/edit', [CategoryController::class, 'edit'])->name('categories.edit');
+        Route::put('/categories/{id}', [CategoryController::class, 'update'])->name('categories.update');
+        Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])->name('categories.destroy');
+        Route::post('/categories/{id}/products', [CategoryController::class, 'addProducts'])->name('categories.products.add');
+        Route::delete('/categories/{id}/products/{productId}', [CategoryController::class, 'removeProduct'])->name('categories.products.remove');
 
-    Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
-    Route::post('/settings/currencies', [CurrencyController::class, 'enable'])->name('currencies.enable');
-    Route::put('/settings/currencies/{code}/default', [CurrencyController::class, 'setDefault'])->name('currencies.default');
-    Route::delete('/settings/currencies/{code}', [CurrencyController::class, 'disable'])->name('currencies.disable');
-});
+        // Warehouses: list, CRUD.
+        Route::get('/warehouses', [WarehouseController::class, 'index'])->name('warehouses.index');
+        Route::get('/warehouses/create', [WarehouseController::class, 'create'])->name('warehouses.create');
+        Route::post('/warehouses', [WarehouseController::class, 'store'])->name('warehouses.store');
+        Route::get('/warehouses/{id}/edit', [WarehouseController::class, 'edit'])->name('warehouses.edit');
+        Route::put('/warehouses/{id}', [WarehouseController::class, 'update'])->name('warehouses.update');
+        Route::delete('/warehouses/{id}', [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
+
+        // Catalog: bulk import + browse.
+        Route::get('/catalog/import', [CatalogImportController::class, 'index'])->name('catalog.import');
+        Route::post('/catalog/import', [CatalogImportController::class, 'store'])->name('catalog.import.store');
+
+        Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
+        Route::post('/settings/currencies', [CurrencyController::class, 'enable'])->name('currencies.enable');
+        Route::put('/settings/currencies/{code}/default', [CurrencyController::class, 'setDefault'])->name('currencies.default');
+        Route::delete('/settings/currencies/{code}', [CurrencyController::class, 'disable'])->name('currencies.disable');
+
+    }); // end ensure.onboarded
+}); // end auth.api
