@@ -1,16 +1,21 @@
 <x-layouts.app :title="__('messages.inbox.title')" :full-height="true">
 
-<div id="inbox-root" class="flex h-full" data-inbox
-     data-thread-url-template="{{ url('/inbox/{id}/thread') }}"
-     data-reply-url-template="{{ url('/inbox/{id}/reply') }}"
-     data-assign-url-template="{{ url('/inbox/{id}/assign') }}"
-     data-status-url-template="{{ url('/inbox/{id}/status') }}"
-     data-notes-url-template="{{ url('/inbox/{id}/notes') }}"
-     data-read-url-template="{{ url('/inbox/{id}/read') }}"
-     data-typing-url-template="{{ url('/inbox/{id}/typing') }}"
-     data-takeover-url-template="{{ url('/inbox/{id}/takeover') }}"
-     data-handback-url-template="{{ url('/inbox/{id}/handback') }}"
-     data-stream-url="{{ url('/inbox/stream') }}"
+<div class="flex h-full flex-col">
+<x-messages-tabs active="customers" />
+
+<div id="inbox-root" class="flex min-h-0 flex-1" data-inbox
+     data-thread-url-template="{{ url('/app/inbox/{id}/thread') }}"
+     data-reply-url-template="{{ url('/app/inbox/{id}/reply') }}"
+     data-assign-url-template="{{ url('/app/inbox/{id}/assign') }}"
+     data-status-url-template="{{ url('/app/inbox/{id}/status') }}"
+     data-notes-url-template="{{ url('/app/inbox/{id}/notes') }}"
+     data-read-url-template="{{ url('/app/inbox/{id}/read') }}"
+     data-typing-url-template="{{ url('/app/inbox/{id}/typing') }}"
+     data-takeover-url-template="{{ url('/app/inbox/{id}/takeover') }}"
+     data-handback-url-template="{{ url('/app/inbox/{id}/handback') }}"
+     data-stream-url="{{ url('/app/inbox/stream') }}"
+     data-index-url="{{ route('inbox.index') }}"
+     data-show-url-template="{{ url('/app/inbox/{id}') }}"
      data-i18n-typing="{{ __('messages.inbox.typing') }}"
      data-i18n-read="{{ __('messages.inbox.read') }}"
      data-csrf="{{ csrf_token() }}"
@@ -111,6 +116,7 @@
             </div>
         @endif
     </div>
+</div>
 </div>
 
 </x-layouts.app>

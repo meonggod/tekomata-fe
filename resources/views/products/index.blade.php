@@ -6,14 +6,25 @@
         ]" />
     </x-slot:breadcrumbs>
 
-    <div class="mx-auto w-full max-w-5xl">
+    <div>
+        <x-products-tabs active="products" />
+
         <div class="flex items-center justify-between">
             <p class="text-sm text-gray-600">{{ __('messages.products.subtitle') }}</p>
-            <a href="{{ route('products.create') }}"
-               class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500">
-                {{ __('messages.products.add_product') }}
-            </a>
+            <div class="flex items-center gap-2">
+                <button type="button" data-import-open
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 7.5 12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+                    {{ __('messages.catalog.import.button') }}
+                </button>
+                <a href="{{ route('products.create') }}"
+                   class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500">
+                    {{ __('messages.products.add_product') }}
+                </a>
+            </div>
         </div>
+
+        @include('products.partials.import')
 
         @if (session('status'))
             <div class="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">

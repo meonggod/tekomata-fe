@@ -6,7 +6,7 @@
         ]" />
     </x-slot:breadcrumbs>
 
-    <div class="mx-auto w-full max-w-3xl">
+    <div>
         <p class="text-sm text-gray-600">{{ __('messages.currencies.subtitle') }}</p>
 
         @if (session('status'))

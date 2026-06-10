@@ -339,6 +339,9 @@ function initInbox() {
     const tplNotes    = root.dataset.notesUrlTemplate;
     const tplTakeover = root.dataset.takeoverUrlTemplate;
     const tplHandback = root.dataset.handbackUrlTemplate;
+    // Base paths for history/navigation (carry the app URL prefix from Blade).
+    const indexUrl = root.dataset.indexUrl || '/app/inbox';
+    const tplShow  = root.dataset.showUrlTemplate || (indexUrl + '/{id}');
 
     // i18n strings from data attributes
     const i18n = {};
@@ -517,7 +520,7 @@ function initInbox() {
             showThread();
 
             // Update URL without reload
-            const newUrl = '/inbox/' + convId;
+            const newUrl = url(tplShow, convId);
             if (window.location.pathname !== newUrl) {
                 history.pushState({ convId }, '', newUrl);
             }
@@ -736,7 +739,7 @@ function initInbox() {
     threadPanel.addEventListener('click', (e) => {
         if (e.target.closest('[data-inbox-back]')) {
             showList();
-            history.pushState({}, '', '/inbox');
+            history.pushState({}, '', indexUrl);
         }
     });
 
@@ -871,7 +874,7 @@ function initInbox() {
                 if (s.value) params.set(s.dataset.inboxFilter, s.value);
             });
             const qs = params.toString();
-            window.location.href = '/inbox' + (qs ? '?' + qs : '');
+            window.location.href = indexUrl + (qs ? '?' + qs : '');
         });
     });
 
@@ -889,7 +892,7 @@ function initInbox() {
         btn.disabled = true;
 
         try {
-            const res = await fetch('/inbox?' + params.toString(), {
+            const res = await fetch(indexUrl + '?' + params.toString(), {
                 headers: { 'Accept': 'text/html' },
             });
             if (!res.ok) throw new Error();
@@ -1163,6 +1166,9 @@ function initTeamChat() {
     const createUrl     = root.dataset.createUrl;
     const tplAddMembers = root.dataset.addMembersUrlTemplate;
     const streamUrl     = root.dataset.streamUrl;
+    // Base paths for history/navigation (carry the app URL prefix from Blade).
+    const indexUrl = root.dataset.indexUrl || '/app/team';
+    const tplShow  = root.dataset.showUrlTemplate || (indexUrl + '/{id}');
 
     // i18n strings from data attributes
     const i18n = {};
@@ -1314,7 +1320,7 @@ function initTeamChat() {
             showThread();
 
             // Update URL without reload
-            const newUrl = '/team/' + convId;
+            const newUrl = url(tplShow, convId);
             if (window.location.pathname !== newUrl) {
                 history.pushState({ convId }, '', newUrl);
             }
@@ -1441,7 +1447,7 @@ function initTeamChat() {
     threadPanel.addEventListener('click', (e) => {
         if (e.target.closest('[data-team-back]')) {
             showList();
-            history.pushState({}, '', '/team');
+            history.pushState({}, '', indexUrl);
         }
     });
 
@@ -1532,9 +1538,9 @@ function initTeamChat() {
 
             // Navigate to new conversation
             if (data.conversation?.id) {
-                window.location.href = '/team/' + data.conversation.id;
+                window.location.href = url(tplShow, data.conversation.id);
             } else {
-                window.location.href = '/team';
+                window.location.href = indexUrl;
             }
         } catch (err) {
             showToast(i18n.error_create || err.message, true);
@@ -1674,3 +1680,613 @@ function initTeamChat() {
 }
 
 document.addEventListener('DOMContentLoaded', initTeamChat);
+
+// ---------------------------------------------------------------------------
+// Catalog import — async upload, live job tracker, conflict review, history
+// ---------------------------------------------------------------------------
+// Progressively enhances the import panel on the product list page. Uploads are
+// non-blocking: POST returns a job id, then a per-job SSE stream drives the
+// status badge, counts, mid-flight auto-apply toggle, conflict review, and the
+// failed-rows retry panel. All routes + strings come from the JSON config the
+// Blade partial embeds, so nothing is hard-coded here.
+function initCatalogImport() {
+    const root = document.querySelector('[data-import]');
+    if (!root) return;
+
+    let config;
+    try {
+        config = JSON.parse(root.querySelector('[data-import-config]').textContent);
+    } catch (_) {
+        return;
+    }
+
+    const i18n   = config.i18n || {};
+    const routes = config.routes || {};
+    const csrf   = config.csrf;
+
+    // --- tiny helpers ---
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const t = (key, repl) => {
+        let s = i18n[key] ?? key;
+        if (repl) for (const k in repl) s = s.replace(`:${k}`, repl[k]);
+        return s;
+    };
+    const jobUrl = (name, id) => (routes[name] || '').replace('__JOB__', encodeURIComponent(id));
+    const jsonHeaders = { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'Content-Type': 'application/json' };
+
+    async function apiError(res) {
+        try {
+            const data = await res.json();
+            return data?.error?.message || Object.values(data?.errors || {})[0]?.[0] || t('load_error');
+        } catch (_) {
+            return t('load_error');
+        }
+    }
+
+    // --- elements ---
+    const openBtn   = document.querySelector('[data-import-open]');
+    const panel     = root.querySelector('[data-import-panel]');
+    const closeBtn  = root.querySelector('[data-import-close]');
+    const form      = root.querySelector('[data-import-form]');
+    const formError = root.querySelector('[data-import-form-error]');
+    const submitBtn = root.querySelector('[data-import-submit]');
+    const jobsEl    = root.querySelector('[data-import-jobs]');
+    const reviewEl  = root.querySelector('[data-import-review]');
+    const histToggle = root.querySelector('[data-import-history-toggle]');
+    const histEl    = root.querySelector('[data-import-history]');
+    const histChevron = root.querySelector('[data-import-history-chevron]');
+
+    // job_id -> { id, status, filename, format, autoApply, summary, counts, concurrent, sse }
+    const jobs = new Map();
+
+    // --- panel open/close ---
+    const openPanel  = () => { panel.hidden = false; panel.querySelector('input[type=file]')?.focus(); };
+    const closePanel = () => { panel.hidden = true; };
+    openBtn?.addEventListener('click', () => { panel.hidden ? openPanel() : closePanel(); });
+    closeBtn?.addEventListener('click', closePanel);
+
+    // --- status badge ---
+    const STATUS_STYLES = {
+        queued: 'bg-gray-100 text-gray-600',
+        parsing: 'bg-blue-50 text-blue-700',
+        staged: 'bg-amber-50 text-amber-700',
+        applying: 'bg-blue-50 text-blue-700',
+        done: 'bg-green-50 text-green-700',
+        partial: 'bg-orange-50 text-orange-700',
+        failed: 'bg-red-50 text-red-700',
+        discarded: 'bg-gray-100 text-gray-500',
+    };
+    const statusLabel = (s) => t('status_' + s) || s;
+    const isPreApply = (s) => s === 'queued' || s === 'parsing' || s === 'staged';
+    const isTerminal = (s) => s === 'done' || s === 'partial' || s === 'failed' || s === 'discarded';
+
+    function countsLine(job) {
+        const c = job.counts || {};
+        const parts = [];
+        if (c.imported != null) parts.push(`${c.imported} ${t('count_imported')}`);
+        if (c.updated != null)  parts.push(`${c.updated} ${t('count_updated')}`);
+        if (c.skipped != null)  parts.push(`${c.skipped} ${t('count_skipped')}`);
+        if (c.failed)           parts.push(`<span class="text-red-600">${c.failed} ${t('count_failed')}</span>`);
+        return parts.join(' · ');
+    }
+
+    // --- render / update a job card ---
+    function renderJob(job) {
+        let card = jobsEl.querySelector(`[data-import-job="${CSS.escape(job.id)}"]`);
+        if (!card) {
+            card = document.createElement('div');
+            card.dataset.importJob = job.id;
+            card.className = 'rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm';
+            jobsEl.append(card);
+        }
+
+        const fmt = (job.format || '').toLowerCase() === 'csv' ? t('format_csv') : t('format_xlsx');
+        const showAutoApply = isPreApply(job.status);
+        const showReview = job.status === 'staged' && job.summary?.needs_review;
+        const showRetry  = job.status === 'partial' || job.status === 'failed';
+        const concurrent = job.status === 'staged' && (job.concurrent?.length > 0);
+
+        card.innerHTML = `
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                        <span class="truncate text-sm font-medium text-gray-900">${esc(job.filename)}</span>
+                        <span class="shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-gray-500">${esc(fmt)}</span>
+                    </div>
+                    <p data-job-counts class="mt-0.5 text-xs text-gray-500">${countsLine(job)}</p>
+                </div>
+                <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[job.status] || 'bg-gray-100 text-gray-600'}">${esc(statusLabel(job.status))}</span>
+                <div class="flex shrink-0 items-center gap-2">
+                    ${showAutoApply ? `
+                        <label class="flex items-center gap-1.5 text-xs text-gray-600">
+                            <input type="checkbox" data-job-autoapply ${job.autoApply ? 'checked' : ''}
+                                   class="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            ${esc(t('auto_apply_label'))}
+                        </label>` : ''}
+                    ${showReview ? `<button type="button" data-job-review class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100">${esc(t('review_button'))}</button>` : ''}
+                    ${showRetry ? `<button type="button" data-job-review class="rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-800 transition hover:bg-orange-100">${esc(t('retry_button'))}</button>` : ''}
+                    ${isPreApply(job.status) ? `<button type="button" data-job-discard class="rounded-lg px-2 py-1.5 text-xs font-medium text-gray-400 transition hover:text-red-600" title="${esc(t('discard_button'))}">&times;</button>` : ''}
+                </div>
+            </div>
+            ${concurrent ? `<p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">${esc(t('concurrent_warning'))}</p>` : ''}
+        `;
+
+        card.querySelector('[data-job-autoapply]')?.addEventListener('change', (e) => toggleAutoApply(job, e.target.checked));
+        card.querySelector('[data-job-review]')?.addEventListener('click', () => openReview(job.id));
+        card.querySelector('[data-job-discard]')?.addEventListener('click', () => discardJob(job, false));
+    }
+
+    function removeJobCard(id) {
+        jobsEl.querySelector(`[data-import-job="${CSS.escape(id)}"]`)?.remove();
+    }
+
+    // --- merge an SSE/event payload into a job ---
+    function applyEvent(job, status, data) {
+        job.status = status || job.status;
+
+        if (data) {
+            // staged summary
+            if (data.ok_count != null || data.conflict_count != null || data.error_count != null || data.needs_review != null) {
+                job.summary = {
+                    ok_count: data.ok_count,
+                    conflict_count: data.conflict_count,
+                    error_count: data.error_count,
+                    needs_review: data.needs_review,
+                };
+            }
+            if (data.concurrent_staged_jobs) job.concurrent = data.concurrent_staged_jobs;
+            if (data.auto_apply != null) job.autoApply = !!data.auto_apply;
+            if (data.original_filename) job.filename = data.original_filename;
+            if (data.format) job.format = data.format;
+
+            // final counts (done/partial/failed)
+            const c = job.counts || {};
+            if (data.imported_count != null) c.imported = data.imported_count;
+            if (data.updated_count != null)  c.updated = data.updated_count;
+            if (data.skipped_count != null)  c.skipped = data.skipped_count;
+            if (data.failed_count != null)   c.failed = data.failed_count;
+            job.counts = c;
+        }
+
+        renderJob(job);
+
+        if (isTerminal(job.status)) {
+            closeJobSSE(job);
+            loadHistory(true); // keep history fresh once a job settles
+        }
+    }
+
+    // --- per-job SSE ---
+    function connectJobSSE(job) {
+        closeJobSSE(job);
+        const url = jobUrl('stream', job.id);
+        if (!url) return;
+
+        const sse = new EventSource(url);
+        job.sse = sse;
+
+        const EVENTS = ['import.queued', 'import.parsing', 'import.staged', 'import.applying', 'import.done', 'import.partial', 'import.failed'];
+        EVENTS.forEach((name) => {
+            sse.addEventListener(name, (e) => {
+                let data = {};
+                try { data = JSON.parse(e.data); } catch (_) {}
+                applyEvent(job, name.replace('import.', ''), data);
+            });
+        });
+        // Fallback for unnamed messages carrying a {status} field.
+        sse.addEventListener('message', (e) => {
+            let data = {};
+            try { data = JSON.parse(e.data); } catch (_) { return; }
+            if (data.status) applyEvent(job, data.status, data);
+        });
+
+        sse.onerror = () => {
+            // EventSource auto-reconnects; once the job is terminal we stop.
+            if (isTerminal(job.status)) closeJobSSE(job);
+        };
+    }
+
+    function closeJobSSE(job) {
+        if (job.sse) { job.sse.close(); job.sse = null; }
+    }
+
+    // --- upload ---
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        formError.hidden = true;
+
+        const fileInput = form.querySelector('input[type=file]');
+        if (!fileInput.files.length) {
+            formError.textContent = t('select_file');
+            formError.hidden = false;
+            return;
+        }
+
+        const fd = new FormData();
+        fd.append('catalog_file', fileInput.files[0]);
+        fd.append('auto_apply', form.querySelector('input[name=auto_apply]').checked ? '1' : '0');
+
+        const filename = fileInput.files[0].name;
+        const format = /\.csv$|\.txt$/i.test(filename) ? 'csv' : 'xlsx';
+        const autoApply = form.querySelector('input[name=auto_apply]').checked;
+
+        submitBtn.disabled = true;
+        const original = submitBtn.textContent;
+        submitBtn.textContent = t('uploading');
+
+        try {
+            const res = await fetch(routes.enqueue, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                body: fd,
+            });
+
+            if (!res.ok) {
+                formError.textContent = await apiError(res);
+                formError.hidden = false;
+                return;
+            }
+
+            const { job } = await res.json();
+            const id = job.job_id || job.id;
+            const entry = { id, status: job.status || 'queued', filename, format, autoApply, summary: null, counts: {}, concurrent: [], sse: null };
+            jobs.set(id, entry);
+            renderJob(entry);
+            connectJobSSE(entry);
+
+            form.reset();
+        } catch (_) {
+            formError.textContent = t('load_error');
+            formError.hidden = false;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = original;
+        }
+    });
+
+    // --- mid-flight auto-apply toggle ---
+    async function toggleAutoApply(job, value) {
+        try {
+            const res = await fetch(jobUrl('autoApply', job.id), {
+                method: 'POST',
+                headers: jsonHeaders,
+                body: JSON.stringify({ auto_apply: value }),
+            });
+            if (res.ok) {
+                const data = await res.json().catch(() => ({}));
+                job.autoApply = value;
+                if (data.job?.status) applyEvent(job, data.job.status, data.job);
+            }
+        } catch (_) { /* leave the checkbox; the next SSE state reconciles it */ }
+    }
+
+    // --- discard / dismiss ---
+    async function discardJob(job, fromReview) {
+        const msg = (job.status === 'partial' || job.status === 'failed') ? t('confirm_dismiss') : t('confirm_discard');
+        if (!window.confirm(msg)) return;
+
+        try {
+            const res = await fetch(jobUrl('discard', job.id), {
+                method: 'DELETE',
+                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            });
+            if (res.ok) {
+                closeJobSSE(job);
+                if (job.status === 'partial' || job.status === 'failed') {
+                    job.status = 'discarded';
+                    renderJob(job);
+                } else {
+                    removeJobCard(job.id);
+                    jobs.delete(job.id);
+                }
+                if (fromReview) closeReview();
+                loadHistory(true);
+            }
+        } catch (_) { /* swallow — user can retry */ }
+    }
+
+    // -----------------------------------------------------------------------
+    // Review drawer — conflicts grouped by entity + error / failed rows
+    // -----------------------------------------------------------------------
+    let reviewDecisions = new Map(); // conflict_id -> 'create' | 'skip'
+
+    async function openReview(id) {
+        let data;
+        try {
+            const res = await fetch(jobUrl('staged', id), { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) throw new Error();
+            data = await res.json();
+        } catch (_) {
+            reviewEl.hidden = false;
+            reviewEl.innerHTML = `<div class="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">${esc(t('load_error'))}</div>`;
+            return;
+        }
+        renderReview(id, data);
+    }
+
+    function closeReview() {
+        reviewEl.hidden = true;
+        reviewEl.innerHTML = '';
+        reviewDecisions = new Map();
+    }
+
+    function renderReview(id, data) {
+        const job = jobs.get(id) || { id, status: data.job?.status || 'staged' };
+        const conflicts = data.conflicts || [];
+        const errorRows = data.error_rows || [];
+        const failedRows = data.failed_rows || [];
+        const okCount = data.job?.ok_count ?? job.summary?.ok_count ?? data.ok_count ?? 0;
+        const isFailedView = job.status === 'partial' || job.status === 'failed';
+
+        reviewDecisions = new Map();
+        conflicts.forEach((c) => {
+            const cid = c.conflict_id || c.id;
+            reviewDecisions.set(cid, c.decision && c.decision !== 'pending' ? c.decision : null);
+        });
+
+        reviewEl.hidden = false;
+        reviewEl.innerHTML = `
+            <div class="mt-3 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-gray-900">${esc(t('review_title'))}</h2>
+                    <button type="button" data-review-close class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600" aria-label="${esc(t('close_button'))}">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                ${(job.concurrent?.length > 0) ? `<p class="border-b border-amber-100 bg-amber-50 px-5 py-3 text-xs text-amber-800">${esc(t('concurrent_warning'))}</p>` : ''}
+
+                <div class="divide-y divide-gray-100">
+                    <div class="px-5 py-3 text-sm text-gray-600">${esc(t('ok_rows', { count: okCount }))}</div>
+
+                    ${!isFailedView && conflicts.length ? `
+                        <div class="px-5 py-4">
+                            <div class="mb-3 flex items-center justify-between">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">${esc(t('section_conflicts'))}</p>
+                                <div class="flex gap-2">
+                                    <button type="button" data-decide-all="create" class="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">${esc(t('decide_all_create'))}</button>
+                                    <button type="button" data-decide-all="skip" class="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50">${esc(t('decide_all_skip'))}</button>
+                                </div>
+                            </div>
+                            <div class="space-y-2">${conflicts.map(renderConflictCard).join('')}</div>
+                        </div>` : ''}
+
+                    ${errorRows.length ? `
+                        <details class="px-5 py-4">
+                            <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-gray-500">${esc(t('section_errors'))} (${errorRows.length})</summary>
+                            <ul class="mt-2 space-y-1">${errorRows.map(renderIssueRow).join('')}</ul>
+                        </details>` : ''}
+
+                    ${isFailedView ? `
+                        <div class="px-5 py-4">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">${esc(t('section_failed'))} (${failedRows.length})</p>
+                            <p class="mt-1 text-xs text-gray-500">${esc(t('failed_hint'))}</p>
+                            <ul class="mt-2 space-y-1">${failedRows.map(renderIssueRow).join('')}</ul>
+                        </div>` : ''}
+                </div>
+
+                <div class="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-5 py-4">
+                    <span data-review-summary class="text-sm text-gray-600"></span>
+                    <div class="flex gap-2">
+                        ${isFailedView
+                            ? `<button type="button" data-review-dismiss class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">${esc(t('dismiss_button'))}</button>
+                               <button type="button" data-review-retry class="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500">${esc(t('retry_button'))}</button>`
+                            : `<button type="button" data-review-discard class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">${esc(t('discard_button'))}</button>
+                               <button type="button" data-review-apply class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-50">${esc(t('apply_button'))}</button>`}
+                    </div>
+                </div>
+            </div>`;
+
+        // wire controls
+        reviewEl.querySelector('[data-review-close]')?.addEventListener('click', closeReview);
+        reviewEl.querySelectorAll('[data-conflict-id]').forEach((cardEl) => {
+            cardEl.querySelectorAll('[data-decision]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    reviewDecisions.set(cardEl.dataset.conflictId, btn.dataset.decision);
+                    paintConflict(cardEl);
+                    refreshSummary();
+                });
+            });
+        });
+        reviewEl.querySelectorAll('[data-decide-all]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const decision = btn.dataset.decideAll;
+                reviewEl.querySelectorAll('[data-conflict-id]').forEach((cardEl) => {
+                    reviewDecisions.set(cardEl.dataset.conflictId, decision);
+                    paintConflict(cardEl);
+                });
+                refreshSummary();
+            });
+        });
+        reviewEl.querySelector('[data-review-apply]')?.addEventListener('click', () => applyImport(job));
+        reviewEl.querySelector('[data-review-discard]')?.addEventListener('click', () => discardJob(jobs.get(id) || job, true));
+        reviewEl.querySelector('[data-review-retry]')?.addEventListener('click', () => retryImport(jobs.get(id) || job));
+        reviewEl.querySelector('[data-review-dismiss]')?.addEventListener('click', () => discardJob(jobs.get(id) || job, true));
+
+        reviewEl.querySelectorAll('[data-conflict-id]').forEach(paintConflict);
+        refreshSummary();
+        reviewEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function renderConflictCard(c) {
+        const cid = c.conflict_id || c.id;
+        const typeLabel = c.conflict_type === 'new_price_tier' ? t('conflict_price_tier') : t('conflict_warehouse');
+        return `
+            <div data-conflict-id="${esc(cid)}" class="rounded-lg border border-gray-200 px-4 py-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900"><span class="text-gray-500">${esc(typeLabel)}:</span> ${esc(c.conflict_key)}</p>
+                        <p class="text-xs text-gray-500">${esc(t('conflict_affects', { count: c.affected_row_count ?? 0 }))}</p>
+                    </div>
+                    <div class="inline-flex overflow-hidden rounded-lg border border-gray-300">
+                        <button type="button" data-decision="create" class="px-3 py-1.5 text-xs font-medium">${esc(t('decide_create'))}</button>
+                        <button type="button" data-decision="skip" class="border-l border-gray-300 px-3 py-1.5 text-xs font-medium">${esc(t('decide_skip'))}</button>
+                    </div>
+                </div>
+                <p data-create-note hidden class="mt-2 text-xs text-gray-400">${esc(t('create_note'))}</p>
+            </div>`;
+    }
+
+    function renderIssueRow(r) {
+        return `<li class="text-xs text-gray-600"><span class="font-medium text-gray-700">${esc(t('error_row', { row: r.row_number ?? '—' }))}:</span> ${esc(r.error_message || '')}</li>`;
+    }
+
+    function paintConflict(cardEl) {
+        const decision = reviewDecisions.get(cardEl.dataset.conflictId);
+        cardEl.querySelectorAll('[data-decision]').forEach((btn) => {
+            const active = btn.dataset.decision === decision;
+            btn.classList.toggle('bg-indigo-600', active && decision === 'create');
+            btn.classList.toggle('bg-gray-600', active && decision === 'skip');
+            btn.classList.toggle('text-white', active);
+            btn.classList.toggle('text-gray-600', !active);
+        });
+        const note = cardEl.querySelector('[data-create-note]');
+        if (note) note.hidden = decision !== 'create';
+    }
+
+    function refreshSummary() {
+        const summaryEl = reviewEl.querySelector('[data-review-summary]');
+        const applyBtn = reviewEl.querySelector('[data-review-apply]');
+        if (!summaryEl) return;
+        let unresolved = 0;
+        reviewDecisions.forEach((d) => { if (!d) unresolved++; });
+        summaryEl.textContent = unresolved === 0 ? t('all_resolved') : t('unresolved', { count: unresolved });
+        if (applyBtn) applyBtn.disabled = unresolved > 0;
+    }
+
+    async function applyImport(job) {
+        // Persist all decisions, then trigger the explicit apply.
+        const decisions = [];
+        reviewDecisions.forEach((decision, conflict_id) => { if (decision) decisions.push({ conflict_id, decision }); });
+
+        try {
+            if (decisions.length) {
+                const dres = await fetch(jobUrl('decisions', job.id), {
+                    method: 'POST',
+                    headers: jsonHeaders,
+                    body: JSON.stringify({ decisions }),
+                });
+                if (!dres.ok) return;
+            }
+            const res = await fetch(jobUrl('apply', job.id), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json().catch(() => ({}));
+                const tracked = jobs.get(job.id) || job;
+                applyEvent(tracked, data.job?.status || 'applying', data.job);
+                if (!tracked.sse) connectJobSSE(tracked);
+                closeReview();
+            }
+        } catch (_) { /* user can retry */ }
+    }
+
+    async function retryImport(job) {
+        try {
+            const res = await fetch(jobUrl('retry', job.id), {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json().catch(() => ({}));
+                const tracked = jobs.get(job.id) || { ...job, counts: {}, summary: null, concurrent: [] };
+                jobs.set(job.id, tracked);
+                applyEvent(tracked, data.job?.status || 'applying', data.job);
+                if (!tracked.sse) connectJobSSE(tracked);
+                closeReview();
+            }
+        } catch (_) { /* user can retry */ }
+    }
+
+    // -----------------------------------------------------------------------
+    // History
+    // -----------------------------------------------------------------------
+    let historyOpen = false;
+
+    histToggle?.addEventListener('click', () => {
+        historyOpen = !historyOpen;
+        histEl.hidden = !historyOpen;
+        if (histChevron) histChevron.style.transform = historyOpen ? 'rotate(90deg)' : '';
+        if (historyOpen) loadHistory(true);
+    });
+
+    async function loadHistory(force) {
+        if (!historyOpen && !force) return;
+        if (!historyOpen) return; // only fetch when visible
+        try {
+            const res = await fetch(routes.history, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) throw new Error();
+            const { jobs: rows } = await res.json();
+            renderHistory(rows || []);
+        } catch (_) {
+            histEl.innerHTML = `<p class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">${esc(t('load_error'))}</p>`;
+        }
+    }
+
+    function renderHistory(rows) {
+        if (!rows.length) {
+            histEl.innerHTML = `<p class="rounded-xl border border-gray-200 bg-white px-5 py-6 text-center text-sm text-gray-500">${esc(t('history_empty'))}</p>`;
+            return;
+        }
+
+        const body = rows.map((r) => {
+            const id = r.job_id || r.id;
+            const status = r.status || '';
+            const fmt = (r.format || '').toLowerCase() === 'csv' ? t('format_csv') : t('format_xlsx');
+            const counts = [
+                `${r.imported_count ?? 0} ${t('count_imported')}`,
+                `${r.updated_count ?? 0} ${t('count_updated')}`,
+                `${r.skipped_count ?? 0} ${t('count_skipped')}`,
+                (r.failed_count ? `<span class="text-red-600">${r.failed_count} ${t('count_failed')}</span>` : ''),
+            ].filter(Boolean).join(' · ');
+            let date = r.created_at || '';
+            try { date = new Date(r.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch (_) {}
+
+            let action = '';
+            if (status === 'staged') action = `<button type="button" data-history-resume="${esc(id)}" class="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100">${esc(t('resume_button'))}</button>`;
+            else if (status === 'partial' || status === 'failed') action = `<button type="button" data-history-retry="${esc(id)}" class="rounded border border-orange-300 bg-orange-50 px-2 py-1 text-xs font-medium text-orange-800 hover:bg-orange-100">${esc(t('retry_button'))}</button>`;
+
+            return `
+                <tr class="border-b border-gray-100 last:border-b-0">
+                    <td class="py-2.5 pr-3">
+                        <div class="flex items-center gap-2">
+                            <span class="truncate text-sm text-gray-800">${esc(r.original_filename || '—')}</span>
+                            <span class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium uppercase text-gray-500">${esc(fmt)}</span>
+                        </div>
+                    </td>
+                    <td class="py-2.5 pr-3"><span class="rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status] || 'bg-gray-100 text-gray-600'}">${esc(statusLabel(status))}</span></td>
+                    <td class="py-2.5 pr-3 text-xs text-gray-500">${counts}</td>
+                    <td class="py-2.5 pr-3 text-xs text-gray-500">${esc(r.uploaded_by || '—')}</td>
+                    <td class="py-2.5 pr-3 text-xs text-gray-400">${esc(date)}</td>
+                    <td class="py-2.5 text-right">${action}</td>
+                </tr>`;
+        }).join('');
+
+        histEl.innerHTML = `
+            <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-gray-200 text-xs font-medium uppercase tracking-wide text-gray-400">
+                            <th class="px-3 py-2 font-medium">${esc(t('history_col_file'))}</th>
+                            <th class="px-3 py-2 font-medium">${esc(t('history_col_status'))}</th>
+                            <th class="px-3 py-2 font-medium">${esc(t('history_col_result'))}</th>
+                            <th class="px-3 py-2 font-medium">${esc(t('history_col_by'))}</th>
+                            <th class="px-3 py-2 font-medium">${esc(t('history_col_date'))}</th>
+                            <th class="px-3 py-2"></th>
+                        </tr>
+                    </thead>
+                    <tbody>${body}</tbody>
+                </table>
+            </div>`;
+
+        histEl.querySelectorAll('[data-history-resume]').forEach((btn) =>
+            btn.addEventListener('click', () => openReview(btn.dataset.historyResume)));
+        histEl.querySelectorAll('[data-history-retry]').forEach((btn) =>
+            btn.addEventListener('click', () => openReview(btn.dataset.historyRetry)));
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initCatalogImport);
+

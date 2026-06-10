@@ -51,6 +51,14 @@ return [
         'connect_timeout' => (int) env('TEKOMATA_API_CONNECT_TIMEOUT', 5),
         'retries' => (int) env('TEKOMATA_API_RETRIES', 2),       // transient (5xx/connection) only
         'retry_sleep_ms' => (int) env('TEKOMATA_API_RETRY_SLEEP_MS', 200),
+
+        // Email allowlist for the internal /internal staff area (comma-separated).
+        // Stop-gap until the API exposes a first-class staff claim; empty = nobody
+        // is staff (deny-by-default). See EnsureInternalStaff.
+        'internal_emails' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('TEKOMATA_INTERNAL_EMAILS', '')),
+        ))),
     ],
 
 ];

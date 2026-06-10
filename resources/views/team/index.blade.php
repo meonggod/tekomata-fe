@@ -1,11 +1,16 @@
 <x-layouts.app :title="__('messages.team.title')" :full-height="true">
 
-<div id="team-root" class="flex h-full" data-team
-     data-thread-url-template="{{ url('/team/{id}/thread') }}"
-     data-send-url-template="{{ url('/team/{id}/messages') }}"
-     data-create-url="{{ url('/team/conversations') }}"
-     data-add-members-url-template="{{ url('/team/{id}/members') }}"
-     data-stream-url="{{ url('/inbox/stream') }}"
+<div class="flex h-full flex-col">
+<x-messages-tabs active="team" />
+
+<div id="team-root" class="flex min-h-0 flex-1" data-team
+     data-thread-url-template="{{ url('/app/team/{id}/thread') }}"
+     data-send-url-template="{{ url('/app/team/{id}/messages') }}"
+     data-create-url="{{ url('/app/team/conversations') }}"
+     data-add-members-url-template="{{ url('/app/team/{id}/members') }}"
+     data-stream-url="{{ url('/app/inbox/stream') }}"
+     data-index-url="{{ route('team.index') }}"
+     data-show-url-template="{{ url('/app/team/{id}') }}"
      data-csrf="{{ csrf_token() }}"
      data-login-url="{{ route('login') }}"
      data-current-user-id="{{ $currentUserId ?? '' }}"
@@ -165,6 +170,7 @@
             </div>
         </div>
     </div>
+</div>
 </div>
 
 </x-layouts.app>

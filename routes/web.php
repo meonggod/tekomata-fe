@@ -8,6 +8,7 @@ use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\InternalDashboardController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProductController;
@@ -93,8 +94,16 @@ Route::post('/logout', function (Request $request, TokenStore $tokens, AuthApi $
     return redirect()->route('home');
 })->name('logout');
 
-// Authenticated area — gated by the Go API session (see EnsureAuthenticated).
-Route::middleware('auth.api')->group(function () {
+// Bare /app → the tenant dashboard (auth/onboarding gates handle the rest).
+Route::redirect('/app', '/app/dashboard');
+
+// Tenant control panel — everything the business owner uses lives under /app.
+// Public marketing (/) and auth (/login, /register, …) stay at the root; the
+// internal tekomata-staff area lives under /internal (separate guard, below).
+// Route NAMES are unchanged (dashboard, products.index, …) so every route()/
+// redirect()->route() call keeps working — only the emitted paths gain /app.
+// Gated by the Go API session (see EnsureAuthenticated).
+Route::prefix('app')->middleware('auth.api')->group(function () {
 
     // Onboarding flow — authenticated but NOT gated by EnsureOnboarded (would loop).
     Route::get('/onboarding', [OnboardingController::class, 'show'])->name('onboarding.show');
@@ -142,9 +151,21 @@ Route::middleware('auth.api')->group(function () {
         Route::put('/warehouses/{id}', [WarehouseController::class, 'update'])->name('warehouses.update');
         Route::delete('/warehouses/{id}', [WarehouseController::class, 'destroy'])->name('warehouses.destroy');
 
-        // Catalog: bulk import + browse.
+        // Catalog: async import (Excel default, CSV accepted) + browse. The
+        // import UX lives on the product list page; these endpoints drive its
+        // upload, live tracker, conflict review, retry, and history. Literal
+        // segments (template/history) are registered before the {job} wildcard.
         Route::get('/catalog/import', [CatalogImportController::class, 'index'])->name('catalog.import');
+        Route::get('/catalog/import/template', [CatalogImportController::class, 'template'])->name('catalog.import.template');
+        Route::get('/catalog/import/history', [CatalogImportController::class, 'history'])->name('catalog.import.history');
         Route::post('/catalog/import', [CatalogImportController::class, 'store'])->name('catalog.import.store');
+        Route::get('/catalog/import/{job}/stream', [CatalogImportController::class, 'stream'])->name('catalog.import.stream');
+        Route::get('/catalog/import/{job}/staged', [CatalogImportController::class, 'staged'])->name('catalog.import.staged');
+        Route::post('/catalog/import/{job}/auto-apply', [CatalogImportController::class, 'autoApply'])->name('catalog.import.auto-apply');
+        Route::post('/catalog/import/{job}/decisions', [CatalogImportController::class, 'decisions'])->name('catalog.import.decisions');
+        Route::post('/catalog/import/{job}/apply', [CatalogImportController::class, 'apply'])->name('catalog.import.apply');
+        Route::post('/catalog/import/{job}/retry', [CatalogImportController::class, 'retry'])->name('catalog.import.retry');
+        Route::delete('/catalog/import/{job}', [CatalogImportController::class, 'discard'])->name('catalog.import.discard');
 
         Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
         Route::post('/settings/currencies', [CurrencyController::class, 'enable'])->name('currencies.enable');
@@ -187,3 +208,12 @@ Route::middleware('auth.api')->group(function () {
 
     }); // end ensure.onboarded
 }); // end auth.api
+
+// Internal tekomata-staff area — separate audience from the tenant panel, so it
+// lives under its own /internal prefix with its own guard (EnsureInternalStaff,
+// alias `internal.staff`). NOT gated by ensure.onboarded — staff are not tenants.
+// This is the home for the ops/daily-job tooling; add screens under here.
+Route::prefix('internal')->middleware(['auth.api', 'internal.staff'])->group(function () {
+    Route::redirect('/', '/internal/dashboard');
+    Route::get('/dashboard', [InternalDashboardController::class, 'index'])->name('internal.dashboard');
+}); // end internal

@@ -26,7 +26,8 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
 ## Key locations
 - `app/Services/Tekomata/` — Go API client (`TekomataClient`: timeouts, retries, status→typed
   exception), `TokenStore` (session JWT), `AuthApi`, `Exceptions/`.
-- `app/Http/Middleware/` — `EnsureAuthenticated` (`auth.api` alias), `SetLocale`.
+- `app/Http/Middleware/` — `EnsureAuthenticated` (`auth.api` alias), `EnsureOnboarded`
+  (`ensure.onboarded`), `EnsureInternalStaff` (`internal.staff`), `SetLocale`.
 - `app/Http/Controllers/` — thin controllers: `CompanySettingsController` (settings page),
   `InboxController` (agent inbox), `TeamChatController` (internal team chat).
 - `config/services.php` → `tekomata` — API base URL/timeouts/retries (from `.env`).
@@ -40,6 +41,18 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
 - `resources/js/app.js` — panel JS: copy-to-clipboard, country combobox, business-hours
   configurator, inbox split-pane, team-chat split-pane (all progressive enhancement, no framework).
 - `tasks/` — `[STORY]` docs from ClickUp (see `tasks/README.md`).
+
+### URL structure (two audiences)
+- `/` — public marketing + auth (`/login`, `/register`, `/verify`, `/forgot-password`, …).
+- **`/app/*`** — the tenant control panel (dashboard, products, inbox, settings, …). The whole
+  authenticated group is wrapped in `Route::prefix('app')`; **route names are unchanged**
+  (`dashboard`, `products.index`, …), so always link with `route()`/`redirect()->route()` — never a
+  hardcoded path. JS that needs a panel URL reads it from a `data-*` attribute rendered by Blade
+  (`data-index-url`, `data-*-url-template`), so the prefix lives in one place. `{id}` placeholders in
+  those templates are replaced client-side.
+- **`/internal/*`** — tekomata-staff ops area (separate audience). Guard: `auth.api` + `internal.staff`
+  (`EnsureInternalStaff`, deny-by-default; staff via API claim or `TEKOMATA_INTERNAL_EMAILS` allowlist).
+  Not gated by onboarding. Own minimal layout `components/layouts/internal.blade.php` (no tenant sidebar).
 
 ## Localization (ID default + EN) — where to edit
 No hard-coded strings; use `__('messages.<key>')`. To fix wording, edit the value in **both**
@@ -97,6 +110,16 @@ Rules for `lang/` edits:
    variant) to catch syntax errors before moving on.
 3. Never bulk-replace quote characters without verifying byte values — the Edit tool can
    silently introduce smart quotes when the old text already contained them.
+
+## Page width / layout standard
+The standard page width + padding lives **once** on `<main>` in
+`resources/views/components/layouts/app.blade.php` (`mx-auto w-full max-w-5xl px-4 py-6 …`). Every
+normal (scrolling) page inherits it — **do not** wrap a page in its own `mx-auto max-w-*` outer
+container; just emit content and it lands at the standard width. Pages that want a narrower column
+(forms, detail views) add an **inner** `mx-auto max-w-xl` wrapper only — never re-declare the outer
+page width. Full-height split-pane pages (inbox/team) pass `:full-height="true"`, which opts out of
+the width cap so they can go full-bleed. Sidebar sections that bundle sibling views switch with
+segmented tabs (`x-products-tabs`, `x-messages-tabs`).
 
 ## Embeddable web-chat widget (`public/js/widget.js`)
 A self-contained vanilla JS IIFE that businesses embed on their websites. It is **not** part of

@@ -35,8 +35,14 @@
             </div>
         @endisset
 
-        {{-- Page content --}}
-        <main class="flex-1 {{ $fullHeight ? 'overflow-hidden' : 'px-4 py-6 sm:px-6 lg:px-8' }}">
+        {{-- Page content.
+             Standard page width lives HERE — every normal (scrolling) page is
+             centered at max-w-5xl with consistent padding, so new pages need no
+             width wrapper of their own. Pages that want a narrower column (forms,
+             detail views) add an inner `mx-auto max-w-xl` wrapper; they should
+             NOT re-declare the outer page width. Full-height pages (inbox/team)
+             opt out and manage their own full-bleed layout. --}}
+        <main class="flex-1 {{ $fullHeight ? 'overflow-hidden' : 'mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8' }}">
             {{ $slot }}
         </main>
     </div>

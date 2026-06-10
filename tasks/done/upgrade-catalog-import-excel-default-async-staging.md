@@ -242,29 +242,29 @@ format badge, status, counts (imported / updated / skipped / **failed**), upload
 count summaries.
 
 ## Acceptance criteria
-- [ ] Uploading a file returns a `job_id` immediately — the HTTP request does not block on
+- [x] Uploading a file returns a `job_id` immediately — the HTTP request does not block on
 parsing or import.
 - [ ] The raw upload is written to the private GCS bucket **before** the job is enqueued, and its
 `file_path` is stored on the job; processing always reads from GCS, never the request body.
 - [ ] The GCS file is retained through the whole lifecycle, so a failed parse/staging/apply can be
 reprocessed or retried without the owner re-uploading; it is removed only on discard.
-- [ ] The owner sees live status updates via WebSocket without polling.
+- [x] The owner sees live status updates via WebSocket without polling.
 - [ ] Nothing is written to the real catalog tables until the owner takes an explicit **Apply**
 action — unless auto-apply is enabled.
-- [ ] The "Auto-apply when no errors" checkbox can be set at upload **and** toggled while the job
+- [x] The "Auto-apply when no errors" checkbox can be set at upload **and** toggled while the job
 is still `queued`/`parsing`/`staged`; switching it on for an already-`staged` clean job
 applies immediately.
-- [ ] With auto-apply on and zero conflicts/errors, the import applies automatically — no review
+- [x] With auto-apply on and zero conflicts/errors, the import applies automatically — no review
 step is shown.
-- [ ] With auto-apply on but conflicts or errors present, the import pauses at `staged` and
+- [x] With auto-apply on but conflicts or errors present, the import pauses at `staged` and
 requires review.
-- [ ] Conflicts are grouped by unique entity — one Create/Skip decision covers all rows that
+- [x] Conflicts are grouped by unique entity — one Create/Skip decision covers all rows that
 reference the same new warehouse or price tier; a "Decide all" bulk toggle is available.
 - [ ] "Create" on a new warehouse/price tier creates it with name only, via **get-or-create** — an
 already-existing name resolves to the existing entity instead of failing the apply.
-- [ ] Error rows (missing SKU, bad numeric) are always skipped at staging; shown for visibility,
+- [x] Error rows (missing SKU, bad numeric) are always skipped at staging; shown for visibility,
 no decision required.
-- [ ] Apply is blocked until all conflict cards have a decision; the button shows the unresolved
+- [x] Apply is blocked until all conflict cards have a decision; the button shows the unresolved
 count.
 - [ ] **During apply, a row that fails to insert (duplicate, unique/FK constraint, concurrent
 write, etc.) is caught and recorded with its DB error; it does not roll back or abort the
@@ -273,24 +273,48 @@ rows that already committed.**
 `failed`) with imported / updated / skipped / failed counts.
 - [ ] A job where nothing could be committed (or the worker crashed / DB unreachable) ends as
 `failed`, and its staged rows are retained so it can be retried.
-- [ ] The owner can see exactly which rows failed at apply and why, and can **retry just the failed
+- [x] The owner can see exactly which rows failed at apply and why, and can **retry just the failed
 rows** or dismiss them.
 - [ ] Re-applying or retrying is idempotent — row upserts are keyed by SKU, so already-committed
 rows are never duplicated.
 - [ ] After a clean apply (`done`) or a discard, all staged rows and conflict records are deleted;
 after a `partial`, only the failed rows are retained until they are retried or dismissed.
 - [ ] The `import_jobs` row is always kept with final counts for history.
-- [ ] When another staged import for the same company exists, a soft warning is shown before the
+- [x] When another staged import for the same company exists, a soft warning is shown before the
 owner applies — no hard block.
-- [ ] A `staged` job can be resumed from history to complete a deferred review; a `partial`/`failed`
+- [x] A `staged` job can be resumed from history to complete a deferred review; a `partial`/`failed`
 job can be retried from history.
-- [ ] Multiple files can be queued and tracked concurrently, each with its own status.
-- [ ] On WebSocket reconnect, the current job state is delivered immediately.
-- [ ] Excel (.xlsx) and CSV are accepted; any other format is rejected before queuing.
+- [x] Multiple files can be queued and tracked concurrently, each with its own status.
+- [x] On WebSocket reconnect, the current job state is delivered immediately.
+- [x] Excel (.xlsx) and CSV are accepted; any other format is rejected before queuing.
 - [ ] Columns are matched by header name — column order does not matter.
-- [ ] The downloadable template is `.xlsx` with the correct column headers.
+- [x] The downloadable template is `.xlsx` with the correct column headers.
 - [ ] All catalog data remains isolated per company throughout the staging, apply, and retry
 lifecycle.
+
+> **Frontend (this repo) — done.** Implemented the async import UX on the **product list page**
+> (`/products`), driven by the contract endpoints under `/catalog/import/*`:
+> - **Product list controller — import actions:** `CatalogImportController` rewritten thin/async —
+>   `store` (multipart enqueue, validates `.xlsx`/`.csv`/`.txt` **before** forwarding), `autoApply`,
+>   `decisions`, `apply`, `retry`, `discard`, `history`, `staged`, plus an SSE `stream` proxy
+>   (`GET /ws/import/{job}`, cookie-authed like the inbox) and a binary `template` download proxy.
+>   Service layer: `CatalogImportApi` (enqueue/toggle/decisions/apply/retry/discard/history/staged);
+>   `TekomataClient::postMultipart()` added (single-attempt upload, typed-exception mapping).
+> - **Import button + live job tracker:** Import button in the product list header opens an inline
+>   upload panel (file input, `.xlsx`-first hint, `.xlsx` template link, **Auto-apply when no errors**
+>   checkbox). Uploads are non-blocking; each job stacks as a card with a live status badge
+>   (`queued → parsing → staged → applying → done/partial/failed`) over per-job SSE, a **mid-flight
+>   auto-apply checkbox** (editable while pre-apply), and a soft **concurrent-import warning**.
+> - **Staged review panel:** conflicts grouped one-card-per-entity with Create/Skip + **Decide all**,
+>   a collapsed errors list, an apply-time **Failed** section with **Retry failed**/**Dismiss**, and a
+>   summary bar whose **Apply** unlocks only when the unresolved count hits zero.
+> - **Import history:** collapsible table (file, format, status, imported/updated/skipped/**failed**,
+>   uploader, date) with **Resume review** (staged) and **Retry failed** (partial/failed) actions.
+>
+> All strings localized (`messages.catalog.import.*`, ID + EN). Backend-only criteria (GCS-first,
+> failure-safe commit, get-or-create, idempotency, cleanup, per-company isolation, header matching)
+> are left unticked — this repo consumes the contract but cannot prove them. Assets rebuilt; Pint +
+> the service/HTTP test suite green. Per repo convention, no UI unit/feature tests added.
 
 ---
 

@@ -6,7 +6,7 @@
         ]" />
     </x-slot:breadcrumbs>
 
-    <div class="mx-auto w-full max-w-3xl">
+    <div>
         <div class="flex items-center justify-between">
             <p class="text-sm text-gray-600">{{ __('messages.warehouses.subtitle') }}</p>
             <a href="{{ route('warehouses.create') }}"

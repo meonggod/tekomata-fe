@@ -6,7 +6,9 @@
         ]" />
     </x-slot:breadcrumbs>
 
-    <div class="mx-auto w-full max-w-3xl">
+    <div>
+        <x-products-tabs active="categories" />
+
         <div class="flex items-center justify-between">
             <p class="text-sm text-gray-600">{{ __('messages.categories.subtitle') }}</p>
             <a href="{{ route('categories.create') }}"

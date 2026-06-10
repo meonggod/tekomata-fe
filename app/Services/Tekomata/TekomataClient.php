@@ -76,6 +76,43 @@ class TekomataClient
     }
 
     /**
+     * Multipart file upload (a single file + scalar form fields).
+     *
+     * Single attempt by design: we never silently retry an upload, because the
+     * upstream handler enqueues a job — a blind retry on a slow-but-successful
+     * call would create a duplicate import. Connection/again errors still map to
+     * the same typed exceptions as every other call so callers don't branch on
+     * raw transport failures.
+     *
+     * @param  array<string,scalar>  $fields
+     * @return array<string,mixed>
+     *
+     * @throws TekomataApiException
+     */
+    public function postMultipart(string $path, string $fileField, string $fileContents, string $fileName, array $fields = [], ?string $token = null): array
+    {
+        $request = Http::baseUrl($this->config['base_url'])
+            ->timeout($this->config['timeout'])
+            ->connectTimeout($this->config['connect_timeout'])
+            ->acceptJson()
+            ->attach($fileField, $fileContents, $fileName);
+
+        if ($token !== null) {
+            $request = $request->withToken($token);
+        }
+
+        try {
+            $response = $request->post(ltrim($path, '/'), $fields);
+        } catch (ConnectionException $e) {
+            $this->logFailure('POST', $path, 0, $e->getMessage());
+
+            throw new ApiUnavailableException('The tekomata API is unreachable. Please try again shortly.', 0, [], $e);
+        }
+
+        return $this->handle('POST', $path, $response);
+    }
+
+    /**
      * Core request: send, retry transient failures, then map the result.
      *
      * @param  array<string,mixed>  $options  Guzzle-style options (json|query).

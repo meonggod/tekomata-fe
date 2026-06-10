@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureAuthenticated;
+use App\Http\Middleware\EnsureInternalStaff;
 use App\Http\Middleware\EnsureOnboarded;
 use App\Http\Middleware\SetLocale;
 use App\Services\Tekomata\Exceptions\ApiUnavailableException;
@@ -24,8 +25,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Protect a route group with ->middleware('auth.api').
         // Add ->middleware('ensure.onboarded') to require completed onboarding.
         $middleware->alias([
-            'auth.api'         => EnsureAuthenticated::class,
+            'auth.api' => EnsureAuthenticated::class,
             'ensure.onboarded' => EnsureOnboarded::class,
+            'internal.staff' => EnsureInternalStaff::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

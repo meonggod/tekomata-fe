@@ -41,7 +41,7 @@
         ];
     @endphp
 
-    <div class="mx-auto w-full max-w-3xl space-y-6">
+    <div class="space-y-6">
         <p class="text-sm text-gray-600">{{ __('messages.settings.subtitle') }}</p>
 
         {{-- ===== Tab Bar ===== --}}

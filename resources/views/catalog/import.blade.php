@@ -6,115 +6,22 @@
         ]" />
     </x-slot:breadcrumbs>
 
-    <div class="mx-auto w-full max-w-5xl space-y-6">
+    <div class="space-y-6">
+        <x-products-tabs active="catalog" />
 
-        {{-- Import form --}}
-        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div class="border-b border-gray-100 px-5 py-4">
-                <h2 class="text-sm font-semibold text-gray-900">{{ __('messages.catalog.import_heading') }}</h2>
+        {{-- Importing now lives on the product list page (async upload + live
+             tracker + review + history). This page is the read-only catalog browse. --}}
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-4">
+            <div>
+                <h2 class="text-sm font-semibold text-indigo-900">{{ __('messages.catalog.import.panel_title') }}</h2>
+                <p class="mt-0.5 text-xs text-indigo-700">{{ __('messages.catalog.import.panel_subtitle') }}</p>
             </div>
-
-            @error('catalog_file')
-                <div class="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                    {{ $message }}
-                </div>
-            @enderror
-
-            <form method="POST" action="{{ route('catalog.import.store') }}"
-                  enctype="multipart/form-data" class="divide-y divide-gray-100">
-                @csrf
-
-                <div class="space-y-4 px-5 py-5">
-                    <div>
-                        <label for="catalog_file" class="block text-sm font-medium text-gray-700">
-                            {{ __('messages.catalog.import_label') }} <span class="text-red-500">*</span>
-                        </label>
-                        <input type="file" id="catalog_file" name="catalog_file" accept=".csv,.txt" required
-                               class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded file:border-0 file:bg-gray-100 file:px-3 file:py-1 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-                    </div>
-
-                    <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 space-y-1">
-                        <p class="font-medium text-gray-700">{{ __('messages.catalog.format_heading') }}</p>
-                        <p>{{ __('messages.catalog.format_columns') }}</p>
-                        <p class="text-xs text-gray-500">{{ __('messages.catalog.format_warehouses_hint') }}</p>
-                        <p class="text-xs text-gray-500">{{ __('messages.catalog.format_prices_hint') }}</p>
-                        <a href="{{ asset('catalog-template.csv') }}" download
-                           class="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-500 mt-1">
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                            </svg>
-                            {{ __('messages.catalog.download_template') }}
-                        </a>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-end px-5 py-4">
-                    <button type="submit"
-                            class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500">
-                        {{ __('messages.catalog.upload_button') }}
-                    </button>
-                </div>
-            </form>
+            <a href="{{ route('products.index') }}"
+               class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 7.5 12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+                {{ __('messages.catalog.import.button') }}
+            </a>
         </div>
-
-        {{-- Import result (shown after a successful POST → redirect) --}}
-        @if (session('import_result'))
-            @php $result = session('import_result'); $summary = $result['summary'] ?? []; $importErrors = $result['errors'] ?? []; @endphp
-
-            <div class="overflow-hidden rounded-xl border border-green-200 bg-white shadow-sm">
-                <div class="border-b border-green-100 bg-green-50 px-5 py-4">
-                    <h2 class="text-sm font-semibold text-green-900">{{ __('messages.catalog.result_heading') }}</h2>
-                </div>
-                <div class="px-5 py-4">
-                    <dl class="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3 lg:grid-cols-4 text-sm">
-                        @foreach ([
-                            'rows_total'         => __('messages.catalog.result_rows_total'),
-                            'rows_succeeded'     => __('messages.catalog.result_rows_succeeded'),
-                            'rows_failed'        => __('messages.catalog.result_rows_failed'),
-                            'products_created'   => __('messages.catalog.result_products_created'),
-                            'products_updated'   => __('messages.catalog.result_products_updated'),
-                            'warehouses_created' => __('messages.catalog.result_warehouses_created'),
-                            'tiers_created'      => __('messages.catalog.result_tiers_created'),
-                            'stock_movements'    => __('messages.catalog.result_stock_movements'),
-                            'prices_upserted'    => __('messages.catalog.result_prices_upserted'),
-                        ] as $key => $label)
-                            @if (array_key_exists($key, $summary))
-                                <div>
-                                    <dt class="text-xs text-gray-500">{{ $label }}</dt>
-                                    <dd class="font-semibold text-gray-900">{{ $summary[$key] }}</dd>
-                                </div>
-                            @endif
-                        @endforeach
-                    </dl>
-                </div>
-
-                @if (!empty($importErrors))
-                    <div class="border-t border-amber-100 bg-amber-50 px-5 py-4">
-                        <p class="mb-3 text-sm font-medium text-amber-900">{{ __('messages.catalog.result_errors_heading') }}</p>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left text-xs">
-                                <thead>
-                                    <tr class="border-b border-amber-200 text-amber-700">
-                                        <th class="pb-1.5 pr-4 font-medium">{{ __('messages.catalog.result_col_row') }}</th>
-                                        <th class="pb-1.5 pr-4 font-medium">{{ __('messages.catalog.result_col_field') }}</th>
-                                        <th class="pb-1.5 font-medium">{{ __('messages.catalog.result_col_message') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-amber-100">
-                                    @foreach ($importErrors as $err)
-                                        <tr>
-                                            <td class="py-1.5 pr-4 text-amber-800">{{ $err['row'] ?? '—' }}</td>
-                                            <td class="py-1.5 pr-4 font-mono text-amber-800">{{ $err['field'] ?? '—' }}</td>
-                                            <td class="py-1.5 text-amber-700">{{ $err['message'] ?? '' }}</td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                @endif
-            </div>
-        @endif
 
         {{-- Catalog browse --}}
         <div>
