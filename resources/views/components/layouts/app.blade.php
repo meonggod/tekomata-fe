@@ -1,4 +1,4 @@
-@props(['title' => 'tekomata'])
+@props(['title' => 'tekomata', 'fullHeight' => false])
 
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
@@ -13,7 +13,7 @@
 
     <x-sidebar />
 
-    <div class="flex min-h-full flex-col lg:ml-64">
+    <div class="flex {{ $fullHeight ? 'h-full' : 'min-h-full' }} flex-col lg:ml-64">
 
         {{-- Mobile top bar --}}
         <div class="flex items-center gap-3 border-b border-gray-200 bg-white px-4 py-3 lg:hidden">
@@ -36,7 +36,7 @@
         @endisset
 
         {{-- Page content --}}
-        <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+        <main class="flex-1 {{ $fullHeight ? 'overflow-hidden' : 'px-4 py-6 sm:px-6 lg:px-8' }}">
             {{ $slot }}
         </main>
     </div>

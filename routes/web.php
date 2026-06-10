@@ -3,14 +3,17 @@
 use App\Http\Controllers\CatalogImportController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\CompanySettingsController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ForgotPasswordController;
+use App\Http\Controllers\InboxController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ResetPasswordController;
+use App\Http\Controllers\TeamChatController;
 use App\Http\Controllers\VerifyController;
 use App\Http\Controllers\WarehouseController;
 use App\Services\Tekomata\AuthApi;
@@ -147,6 +150,40 @@ Route::middleware('auth.api')->group(function () {
         Route::post('/settings/currencies', [CurrencyController::class, 'enable'])->name('currencies.enable');
         Route::put('/settings/currencies/{code}/default', [CurrencyController::class, 'setDefault'])->name('currencies.default');
         Route::delete('/settings/currencies/{code}', [CurrencyController::class, 'disable'])->name('currencies.disable');
+
+        // Inbox: omnichannel agent inbox — list, thread, reply, assign, status, notes.
+        // SSE stream + read/typing MUST be registered before the {id} wildcard.
+        Route::get('/inbox/stream', [InboxController::class, 'stream'])->name('inbox.stream');
+        Route::get('/inbox', [InboxController::class, 'index'])->name('inbox.index');
+        Route::get('/inbox/{id}', [InboxController::class, 'show'])->name('inbox.show');
+        Route::get('/inbox/{id}/thread', [InboxController::class, 'threadJson'])->name('inbox.thread');
+        Route::post('/inbox/{id}/reply', [InboxController::class, 'reply'])->name('inbox.reply');
+        Route::post('/inbox/{id}/assign', [InboxController::class, 'assign'])->name('inbox.assign');
+        Route::patch('/inbox/{id}/status', [InboxController::class, 'status'])->name('inbox.status');
+        Route::post('/inbox/{id}/notes', [InboxController::class, 'addNote'])->name('inbox.notes');
+        Route::post('/inbox/{id}/read', [InboxController::class, 'markRead'])->name('inbox.read');
+        Route::post('/inbox/{id}/typing', [InboxController::class, 'typing'])->name('inbox.typing');
+        Route::post('/inbox/{id}/takeover', [InboxController::class, 'takeover'])->name('inbox.takeover');
+        Route::post('/inbox/{id}/handback', [InboxController::class, 'handback'])->name('inbox.handback');
+
+        // Team chat: internal 1:1 and group conversations between company users.
+        Route::get('/team', [TeamChatController::class, 'index'])->name('team.index');
+        Route::get('/team/{id}', [TeamChatController::class, 'show'])->name('team.show');
+        Route::get('/team/{id}/thread', [TeamChatController::class, 'threadJson'])->name('team.thread');
+        Route::post('/team/conversations', [TeamChatController::class, 'createConversation'])->name('team.conversations.create');
+        Route::post('/team/{id}/messages', [TeamChatController::class, 'sendMessage'])->name('team.messages.send');
+        Route::post('/team/{id}/members', [TeamChatController::class, 'addMembers'])->name('team.members.add');
+
+        // Company settings: identity, assistant behavior, notification emails, WhatsApp numbers.
+        Route::get('/settings', [CompanySettingsController::class, 'show'])->name('settings.show');
+        Route::post('/settings/company', [CompanySettingsController::class, 'updateCompany'])->name('settings.company.update');
+        Route::post('/settings/assistant', [CompanySettingsController::class, 'updateAssistant'])->name('settings.assistant.update');
+        Route::post('/settings/emails', [CompanySettingsController::class, 'addEmail'])->name('settings.emails.add');
+        Route::post('/settings/emails/{id}/promote', [CompanySettingsController::class, 'promoteEmail'])->name('settings.emails.promote');
+        Route::delete('/settings/emails/{id}', [CompanySettingsController::class, 'deleteEmail'])->name('settings.emails.delete');
+        Route::post('/settings/whatsapp', [CompanySettingsController::class, 'addWhatsapp'])->name('settings.whatsapp.add');
+        Route::post('/settings/whatsapp/{id}/promote', [CompanySettingsController::class, 'promoteWhatsapp'])->name('settings.whatsapp.promote');
+        Route::delete('/settings/whatsapp/{id}', [CompanySettingsController::class, 'deleteWhatsapp'])->name('settings.whatsapp.delete');
 
     }); // end ensure.onboarded
 }); // end auth.api

@@ -6,7 +6,11 @@
 ## What this repo is
 Laravel + Blade + Tailwind. **UI layer only** — it renders pages and **calls the Go API** for
 all data and auth. No business logic or product DB here; the Go API is the single backend and
-source of truth. (The product assistant itself runs over WhatsApp, not here.)
+source of truth.
+
+This repo also ships the **embeddable web-chat widget** (`public/js/widget.js`) — a standalone
+vanilla JS file (no Vite, no build step) that any business pastes onto their website via a single
+`<script>` tag. It talks directly to the Go API's public webhook, not through Laravel.
 
 ## Golden rules
 1. **No local DB for product/tenant data** — everything goes through `app/Services/Tekomata`.
@@ -23,8 +27,18 @@ source of truth. (The product assistant itself runs over WhatsApp, not here.)
 - `app/Services/Tekomata/` — Go API client (`TekomataClient`: timeouts, retries, status→typed
   exception), `TokenStore` (session JWT), `AuthApi`, `Exceptions/`.
 - `app/Http/Middleware/` — `EnsureAuthenticated` (`auth.api` alias), `SetLocale`.
+- `app/Http/Controllers/` — thin controllers: `CompanySettingsController` (settings page),
+  `InboxController` (agent inbox), `TeamChatController` (internal team chat).
 - `config/services.php` → `tekomata` — API base URL/timeouts/retries (from `.env`).
 - `resources/views/` — Blade; layout at `components/layouts/app.blade.php`.
+- `resources/views/settings/` — company settings (company identity, assistant, billing,
+  WhatsApp numbers, web-chat widget embed code).
+- `resources/views/inbox/` — omnichannel agent inbox (conversations list + thread).
+- `resources/views/team/` — internal team chat.
+- `public/js/widget.js` — **embeddable web-chat widget** (standalone IIFE, no build step).
+  Served at a stable URL for external `<script>` embedding. Do **not** move this into Vite.
+- `resources/js/app.js` — panel JS: copy-to-clipboard, country combobox, business-hours
+  configurator, inbox split-pane, team-chat split-pane (all progressive enhancement, no framework).
 - `tasks/` — `[STORY]` docs from ClickUp (see `tasks/README.md`).
 
 ## Localization (ID default + EN) — where to edit
@@ -65,6 +79,42 @@ php artisan serve      # or Laragon host     php artisan test   # tests
 PHP 8.3, PSR-12 (run Pint). Thin controllers — no inline HTTP calls; go through the service
 layer. Validate every request. Never echo upstream errors raw — log detail, show a friendly
 message. Blade components for anything reused. Secrets only via `config()`/`.env`.
+
+## Tooling constraints
+**Never use Python, Node scripts, or any language besides PHP/Bash** for file manipulation,
+text replacement, or automation in this repo. Use `php artisan tinker`, `sed`, `php -r`, or
+Bash one-liners when a quick transform is needed.
+
+## Smart-quote / curly-quote hazard in `lang/` files
+The `lang/*.php` files use **single-quoted PHP strings**. Editors and copy-paste sometimes
+silently convert ASCII apostrophes (`'` U+0027) into Unicode smart quotes (`'` U+2018 / `'` U+2019).
+PHP only recognises ASCII `'` as a string delimiter, so a stray smart quote **breaks parsing**.
+
+Rules for `lang/` edits:
+1. If a string value contains an apostrophe (e.g. *company's*), wrap the value in **double quotes**
+   (`"Company's profile"`) instead of escaping.
+2. After editing any `lang/` file, **always run `php -l lang/en/messages.php`** (and the `id`
+   variant) to catch syntax errors before moving on.
+3. Never bulk-replace quote characters without verifying byte values — the Edit tool can
+   silently introduce smart quotes when the old text already contained them.
+
+## Embeddable web-chat widget (`public/js/widget.js`)
+A self-contained vanilla JS IIFE that businesses embed on their websites. It is **not** part of
+the Vite/Tailwind pipeline — all styles are inline, no external CSS dependency.
+
+Key rules:
+1. **No build step** — the file is served directly from `public/js/widget.js`. Do not import it
+   into Vite or add a build transform.
+2. **No host-page conflicts** — all CSS is scoped under `#tekomata-widget` with inline styles.
+   z-index 99999. No global selectors.
+3. **No JWT / no auth** — the widget calls the Go API's public webhook
+   (`POST /api/v1/webhooks/web-chat`) keyed by `site_key` (= company ID). No Laravel session.
+4. **LocalStorage persistence** — visitor ID, name, and messages are stored in
+   `localStorage` keyed by site_key, surviving page reloads.
+5. **Polling for replies** — every 5 s while the panel is open; degrades silently if the GET
+   endpoint is not available yet (404/error stops polling without error UI).
+6. The embed snippet is shown to the business on the Settings → Company → "Web Chat Widget"
+   card, with the company ID pre-filled and a copy button.
 
 ## Testing & verifying UI work
 Keep tests on the **service/HTTP layer** (client, exceptions, locale) — that's where the value is.

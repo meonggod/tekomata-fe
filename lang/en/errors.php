@@ -62,6 +62,23 @@ return [
         'name_taken' => 'A warehouse with that name already exists.',
     ],
 
+    // Company settings.
+    'settings' => [
+        'email_not_found'        => 'Email not found.',
+        'email_taken'            => 'That email address is already on your list.',
+        'last_email'             => 'You must keep at least one notification email.',
+        'whatsapp_not_found'     => 'WhatsApp number not found.',
+        'whatsapp_taken'         => 'That number is already on your list.',
+        'last_whatsapp_number'   => 'You must keep at least one WhatsApp number.',
+    ],
+
+    // Omnichannel / inbox.
+    'omnichannel' => [
+        'conversation_not_found'  => 'Conversation not found.',
+        'send_window_closed'      => 'The messaging window has closed. The customer must message first to reopen it.',
+        'channel_not_registered'  => 'This channel is not connected yet. Set it up in Settings first.',
+    ],
+
     // Per-field validation codes (used inside error.fields[].code).
     'validation' => [
         'required'             => 'This field is required.',
@@ -72,6 +89,10 @@ return [
         'decimal'              => 'Please enter a valid decimal number.',
         'fraction_not_allowed' => 'This unit doesn\'t allow fractional quantities.',
         'invalid_value'        => 'Please select a valid option.',
+        'invalid_phone'        => 'Please enter a valid phone number in E.164 format (e.g. +6281234567890).',
+        'invalid_timezone'     => 'Please choose a valid timezone.',
+        'time_range'           => 'Open time must be before close time.',
+        'overlap'              => 'Time slots on the same day must not overlap.',
     ],
 
 ];

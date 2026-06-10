@@ -39,10 +39,16 @@ function that already live on WhatsApp. Profit is mandatory — see the pricing 
 - **Assistant** — parse the question → call the lookup functions → compose a plain answer → reply
   via the WhatsApp Business API.
 - **Usage meter** — one billable event per answered query, charged at the tenant's tier rate.
+- **Omnichannel** — beyond the original WhatsApp loop, the product now supports **multiple inbound
+  channels**: WhatsApp (personal + group), Instagram (DMs + comments), email (threaded), and a
+  **website chat widget** (embeddable JS). All channels feed into a **unified agent inbox** with
+  assignment, status management, AI/human handoff, internal notes, and **real-time delivery** (SSE).
+  An **internal team chat** (direct + group) is also available for agents.
 - **Control panel (Laravel)** — owner registers / logs in, completes KYC/KYB onboarding, imports
-  catalog, manages API keys, and sees usage & bill / manages subscription. The account stories
-  (register, login, forgot-password, KYC/KYB onboarding, open-API keys) are the refined foundation
-  for this panel; the landing page funnels signups into it.
+  catalog, manages company settings (assistant persona, business hours, WhatsApp numbers, web-chat
+  widget embed code), and operates the agent inbox + team chat. The account stories (register,
+  login, forgot-password, KYC/KYB onboarding, open-API keys) are the refined foundation for this
+  panel; the landing page funnels signups into it.
 
 ## Accounts, tenancy & auth
 The **company is the tenant**; **users ↔ companies is many-to-many** (a membership join with a

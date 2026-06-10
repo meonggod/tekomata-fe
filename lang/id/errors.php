@@ -62,6 +62,23 @@ return [
         'name_taken' => 'Gudang dengan nama itu sudah ada.',
     ],
 
+    // Pengaturan perusahaan.
+    'settings' => [
+        'email_not_found'        => 'Email tidak ditemukan.',
+        'email_taken'            => 'Alamat email itu sudah ada dalam daftarmu.',
+        'last_email'             => 'Kamu harus mempertahankan setidaknya satu email notifikasi.',
+        'whatsapp_not_found'     => 'Nomor WhatsApp tidak ditemukan.',
+        'whatsapp_taken'         => 'Nomor itu sudah ada dalam daftarmu.',
+        'last_whatsapp_number'   => 'Kamu harus mempertahankan setidaknya satu nomor WhatsApp.',
+    ],
+
+    // Omnichannel / inbox.
+    'omnichannel' => [
+        'conversation_not_found'  => 'Percakapan tidak ditemukan.',
+        'send_window_closed'      => 'Jendela pesan sudah ditutup. Pelanggan harus mengirim pesan dulu untuk membukanya kembali.',
+        'channel_not_registered'  => 'Kanal ini belum terhubung. Atur di Pengaturan terlebih dahulu.',
+    ],
+
     // Kode validasi per-field (dipakai di error.fields[].code).
     'validation' => [
         'required'             => 'Kolom ini wajib diisi.',
@@ -72,6 +89,10 @@ return [
         'decimal'              => 'Mohon masukkan angka desimal yang valid.',
         'fraction_not_allowed' => 'Satuan ini tidak mengizinkan jumlah desimal.',
         'invalid_value'        => 'Mohon pilih opsi yang valid.',
+        'invalid_phone'        => 'Mohon masukkan nomor telepon yang valid dalam format E.164 (mis. +6281234567890).',
+        'invalid_timezone'     => 'Mohon pilih zona waktu yang valid.',
+        'time_range'           => 'Waktu buka harus sebelum waktu tutup.',
+        'overlap'              => 'Slot waktu pada hari yang sama tidak boleh tumpang tindih.',
     ],
 
 ];
