@@ -59,7 +59,15 @@ refused and the balance is unchanged; an already-incurred AI cost settles even i
 the wallet up to one event negative.
 - [ ] Each charge is line-itemed and reconciles exactly with the wallet debit and the usage-meter event.
 - [ ] Re-processing the same source event does not double-charge.
-- [ ] The owner sees a cost breakdown by usage / subscription / feature for a chosen period in the panel.
+- [x] The owner sees a cost breakdown by usage / subscription / feature for a chosen period in the panel.
+
+> **Frontend (this repo) — done.** Cost & billing panel (`/app/billing`): `BillingApi::charges`
+> (`GET /api/v1/billing/charges?from=&to=`), thin `BillingController` (7/30/90-day period selector → date range,
+> default 30), route under `app`+`ensure.onboarded`, sidebar nav entry, `billing/index.blade.php` — total spend +
+> spendable balance, a by-category breakdown bar (usage / subscription / feature / ai, with any extra API keys
+> appended so nothing is dropped), and a line-itemed, expandable charges list (per-item kind, description,
+> original-currency amount when non-IDR, IDR amount; pre-authorized flag for not-yet-incurred). Strings under
+> `messages.billing.*` (id+en). The charging engine, conversion, idempotency and reconciliation are backend.
 
 ---
 

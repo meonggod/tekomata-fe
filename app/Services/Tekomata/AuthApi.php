@@ -25,9 +25,17 @@ class AuthApi
      * active) is enabled as the company default. Omitted when blank — the field
      * is backward-compatible.
      *
+     * An optional `promo_code` grants welcome IDR credit to the new company's
+     * spendable wallet on verify; an invalid/expired/capped code is rejected with
+     * a 422 `fields[promo_code]`. Like `country_code`, it is omitted when blank.
+     *
+     * An optional `referral_code` attributes the new company to the referring
+     * company at verify time (immutable thereafter); a bad code is rejected with a
+     * 422 `fields[referral_code]`. Also omitted when blank.
+     *
      * @return array<string,mixed>
      */
-    public function register(string $email, string $password, ?string $countryCode = null): array
+    public function register(string $email, string $password, ?string $countryCode = null, ?string $promoCode = null, ?string $referralCode = null): array
     {
         $payload = [
             'email' => $email,
@@ -36,6 +44,14 @@ class AuthApi
 
         if ($countryCode !== null && $countryCode !== '') {
             $payload['country_code'] = $countryCode;
+        }
+
+        if ($promoCode !== null && $promoCode !== '') {
+            $payload['promo_code'] = $promoCode;
+        }
+
+        if ($referralCode !== null && $referralCode !== '') {
+            $payload['referral_code'] = $referralCode;
         }
 
         return $this->client->post('/api/v1/auth/register', $payload);

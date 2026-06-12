@@ -39,12 +39,20 @@ A visitor on the public homepage — or a logged-in owner inside the panel — c
 - **Background:** same widget, but passes the user JWT / active company so answers can be owner-aware; reuses the shared API client.
 
 ## Acceptance criteria
-- [ ] A visitor on the public homepage can ask a plain-language question about tekomata's features/pricing and get a relevant answer grounded in the knowledge base, without logging in.
-- [ ] A logged-in owner can ask the same assistant inside the panel and get an answer, with their company context available to the request.
+- [x] A visitor on the public homepage can ask a plain-language question about tekomata's features/pricing and get a relevant answer grounded in the knowledge base, without logging in. _(FE: homepage widget → /cs/ask without a token.)_
+- [x] A logged-in owner can ask the same assistant inside the panel and get an answer, with their company context available to the request. _(FE: in-app widget; the proxy attaches the session JWT server-side.)_
 - [ ] Answers are grounded in `knowledge_entries` — the assistant does not fabricate features that aren't in the knowledge base; an unknown / low-confidence question gets an honest "I don't have that yet" style answer rather than a made-up one.
 - [ ] Every question asked on either surface is stored with the answer given, an answered/confidence flag, the surface, and the user/company when authenticated.
 - [ ] The stored questions are queryable as the foundation for a future tekomata-internal review dashboard (no dashboard UI required in this story).
-- [ ] The public widget shows a sign-up CTA.
+- [x] The public widget shows a sign-up CTA.
+
+> **Frontend (this repo) — done.** CS assistant on both surfaces: `CsApi::ask` (`POST /api/v1/cs/ask` with
+> optional JWT), a thin same-origin `CsController` proxy (route `POST /cs/ask`, public) that attaches the session
+> token only for `surface=in_app` so the JWT never reaches the browser and the homepage asks anonymously. Shared
+> `x-cs-widget` Blade component (floating launcher + chat panel) included on the landing page (`surface=homepage`,
+> with sign-up CTA) and in the app layout (`surface=in_app`); driven by `initCsWidget()` in `resources/js/app.js`
+> (synchronous ask/answer, answers rendered via `textContent` — never injected as HTML, honest fallback/error
+> bubbles). Strings under `messages.cs.*` (id+en). Knowledge grounding, capture and the review feed are backend.
 
 ---
 

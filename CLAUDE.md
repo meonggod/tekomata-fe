@@ -25,15 +25,21 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
 
 ## Key locations
 - `app/Services/Tekomata/` — Go API client (`TekomataClient`: timeouts, retries, status→typed
-  exception), `TokenStore` (session JWT; `userId()` decodes the access-token JWT `sub` claim —
-  `/auth/me` is 404 and `user()` is never populated, so use `userId()` for the signed-in user id),
-  `AuthApi`, `InboxApi`, `TeamChatApi`, `WalletApi`, `Exceptions/`.
+  exception; `get`/`post`/`request` take an optional `array $headers` so non-JWT calls can send a
+  custom header — used for platform-admin `X-Admin-Key`), `TokenStore` (session JWT; `userId()`
+  decodes the access-token JWT `sub` claim — `/auth/me` is 404 and `user()` is never populated, so
+  use `userId()` for the signed-in user id), `AuthApi`, `InboxApi`, `TeamChatApi`, `WalletApi`,
+  `SubscriptionApi`, `BillingApi`, `ReferralApi`, `CsApi`, `AdminFxApi` (platform-admin, X-Admin-Key),
+  `Exceptions/`.
 - `app/Http/Middleware/` — `EnsureAuthenticated` (`auth.api` alias), `EnsureOnboarded`
   (`ensure.onboarded`), `EnsureInternalStaff` (`internal.staff`), `SetLocale`.
 - `app/Http/Controllers/` — thin controllers: `CompanySettingsController` (settings page),
   `InboxController` (agent inbox + cursor-paginated thread), `TeamChatController` (internal team
-  chat), `WalletController` (prepaid IDR wallet).
-- `config/services.php` → `tekomata` — API base URL/timeouts/retries (from `.env`).
+  chat), `WalletController` (prepaid IDR wallet), `SubscriptionController` (plans + subscribe/cancel),
+  `BillingController` (cost breakdown panel), `ReferralController` (referral page), `CsController`
+  (CS-assistant proxy), `InternalFxController` (internal FX rates view).
+- `config/services.php` → `tekomata` — API base URL/timeouts/retries + `admin_key`
+  (`TEKOMATA_ADMIN_KEY`, the platform-admin `X-Admin-Key`) + `internal_emails` (from `.env`).
 - `resources/views/` — Blade; layout at `components/layouts/app.blade.php`.
 - `resources/views/settings/` — company settings (company identity, assistant, billing,
   WhatsApp numbers, web-chat widget embed code).
@@ -41,11 +47,23 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
 - `resources/views/team/` — internal team chat.
 - `resources/views/wallet/` — prepaid IDR wallet (spendable + reward balances, top-up/convert/
   withdraw, bucket-tagged transaction history).
+- `resources/views/subscription/` — paid monthly plans: current plan (free Tier 0 vs paid, with
+  renewal/expiry + auto-renew), plan grid, subscribe/switch/cancel (debits the spendable wallet).
+- `resources/views/billing/` — aggregated cost breakdown (usage/subscription/feature/AI) over a
+  7/30/90-day window, alongside the spendable balance; complements the wallet's raw ledger.
+- `resources/views/referral/` — the company's referral code + share link (copy), total reward,
+  and referred-companies table; rewards land in the **reward** wallet bucket.
+- `resources/views/internal/fx.blade.php` — **tekomata-staff** FX rates view (current USD→IDR
+  rates + freshness + manual "sync now"), via `AdminFxApi` (X-Admin-Key, not a tenant JWT).
+- `resources/views/components/cs-widget.blade.php` — **CS feature-assistant** floating chat widget
+  (`x-cs-widget :surface="homepage|in_app"`), on the landing page + every panel page. NOT the
+  embeddable widget below — this one answers questions about *tekomata itself*. See **CS assistant**.
 - `public/js/widget.js` — **embeddable web-chat widget** (standalone IIFE, no build step).
   Served at a stable URL for external `<script>` embedding. Do **not** move this into Vite.
 - `resources/js/app.js` — panel JS: copy-to-clipboard, country combobox, business-hours
-  configurator, inbox split-pane, team-chat split-pane, wallet (all progressive enhancement, no
-  framework). The inbox/team thread logic is the most involved — see **Messaging UI** below.
+  configurator, inbox split-pane, team-chat split-pane, wallet, `initCsWidget` (CS assistant) — all
+  progressive enhancement, no framework. The inbox/team thread logic is the most involved — see
+  **Messaging UI** below.
 - `tasks/` — `[STORY]` docs from ClickUp (see `tasks/README.md`).
 
 ### URL structure (two audiences)
@@ -58,7 +76,9 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
   those templates are replaced client-side.
 - **`/internal/*`** — tekomata-staff ops area (separate audience). Guard: `auth.api` + `internal.staff`
   (`EnsureInternalStaff`, deny-by-default; staff via API claim or `TEKOMATA_INTERNAL_EMAILS` allowlist).
-  Not gated by onboarding. Own minimal layout `components/layouts/internal.blade.php` (no tenant sidebar).
+  Not gated by onboarding. Own minimal layout `components/layouts/internal.blade.php` (no tenant sidebar;
+  its own slim nav). Screens: dashboard + FX rates (`/internal/fx`). Internal screens call the
+  **platform-admin** Go endpoints with the `X-Admin-Key` header (see **Platform-admin calls**), never a JWT.
 
 ## Localization (ID default + EN) — where to edit
 No hard-coded strings; use `__('messages.<key>')`. To fix wording, edit the value in **both**
@@ -72,6 +92,9 @@ No hard-coded strings; use `__('messages.<key>')`. To fix wording, edit the valu
 ```
 TEKOMATA_API_URL, TEKOMATA_API_TIMEOUT, TEKOMATA_API_CONNECT_TIMEOUT,
 TEKOMATA_API_RETRIES, TEKOMATA_API_RETRY_SLEEP_MS
+TEKOMATA_ADMIN_KEY      # platform-admin X-Admin-Key for /internal screens (FX, future plan/promo CRUD).
+                        # Empty ⇒ those admin calls degrade to a friendly "not configured" state.
+TEKOMATA_INTERNAL_EMAILS  # comma-separated staff allowlist for /internal (deny-by-default)
 APP_LOCALE=id   SESSION_DRIVER=database   # shared driver so JWTs survive scaling
 ```
 
@@ -158,6 +181,30 @@ so respect it:
   `TeamChatController::latestThreadMessages` fetches a wide window and keeps the **last** slice so the
   thread opens on the newest messages. Live messages only auto-scroll when near the bottom (don't
   yank an agent reading history).
+
+## Platform-admin calls (`X-Admin-Key`) — non-obvious rules
+Some Go endpoints are **tekomata-platform-admin**, not tenant-scoped: they authenticate with an
+`X-Admin-Key` header (a single tekomata-owned key) instead of a tenant JWT. FX rate sync is the
+first; plan / feature-price / promo / knowledge-base CRUD are the same family.
+- The key lives in `config('services.tekomata.admin_key')` ← `TEKOMATA_ADMIN_KEY`. **Never**
+  per-company, never in the browser.
+- `TekomataClient`'s `get`/`post`/`request` take an optional final `array $headers` — that's how the
+  admin key rides along (`['X-Admin-Key' => …]`). Build a dedicated tiny service per admin family
+  (see `AdminFxApi`), bind it in `AppServiceProvider` with the key injected, expose a `configured()`
+  so the view can degrade to a friendly "admin key not configured" state when the key is absent.
+- These screens live under `/internal/*` (staff guard) — a tenant JWT must never reach them.
+
+## CS feature-assistant (`x-cs-widget`, `initCsWidget`) — NOT the embeddable widget
+Two different "chat widgets" exist; do not confuse them. The CS assistant answers questions about
+**tekomata's own** features/pricing; the embeddable widget (below) sits on *customers'* sites.
+- `x-cs-widget :surface="homepage|in_app"` — one Blade component, on the landing page
+  (`surface=homepage`, anonymous, shows a sign-up CTA) **and** in `layouts/app.blade.php`
+  (`surface=in_app`, every panel page). Driven by `initCsWidget()` in `resources/js/app.js`.
+- **The JWT never reaches the browser.** The widget POSTs same-origin to `/cs/ask` (`CsController`,
+  a public web route); the controller attaches the session token **only** when `surface=in_app`, so
+  the homepage asks anonymously (AI cost is tekomata's own) and in-app answers are company-aware.
+- Synchronous ask→answer (no polling). Answers are rendered with `textContent` — **never** injected
+  as HTML. Honest fallback/error bubbles on an unknown question or a backend failure.
 
 ## Embeddable web-chat widget (`public/js/widget.js`)
 A self-contained vanilla JS IIFE that businesses embed on their websites. It is **not** part of

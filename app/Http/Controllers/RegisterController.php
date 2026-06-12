@@ -24,7 +24,7 @@ class RegisterController extends Controller
         private readonly CatalogApi $catalog,
     ) {}
 
-    public function show(): View
+    public function show(Request $request): View
     {
         // The country dropdown is an optional convenience — if the public
         // catalog is unreachable, signup must still work, so degrade to an
@@ -37,7 +37,14 @@ class RegisterController extends Controller
             // Non-fatal: render the form without the country selector.
         }
 
-        return view('auth.register', ['countries' => $countries]);
+        return view('auth.register', [
+            'countries' => $countries,
+            // Prefillable from a campaign link (e.g. /register?promo_code=WELCOME50).
+            'promoCode' => (string) $request->query('promo_code', ''),
+            // Prefillable from a share link — accept the short `?ref=` form the
+            // referral share URL uses, falling back to the explicit field name.
+            'referralCode' => (string) ($request->query('ref') ?? $request->query('referral_code', '')),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -51,6 +58,12 @@ class RegisterController extends Controller
             // Optional, backward-compatible. ISO 3166-1 alpha-2; the Go API is
             // the authority on which codes are active (422 invalid_country).
             'country_code' => ['nullable', 'string', 'size:2'],
+            // Optional welcome-credit code. The Go API is the authority on
+            // validity/expiry/cap (422 fields[promo_code]); we only forward it.
+            'promo_code' => ['nullable', 'string', 'max:64'],
+            // Optional referral code. The Go API validates it (422
+            // fields[referral_code]) and binds attribution at verify time.
+            'referral_code' => ['nullable', 'string', 'max:64'],
         ], [
             'email.required' => __('errors.validation.required'),
             'email.email' => __('errors.validation.email'),
@@ -62,9 +75,11 @@ class RegisterController extends Controller
 
         $email = strtolower(trim($validated['email']));
         $countryCode = isset($validated['country_code']) ? strtoupper($validated['country_code']) : null;
+        $promoCode = isset($validated['promo_code']) ? trim($validated['promo_code']) : null;
+        $referralCode = isset($validated['referral_code']) ? trim($validated['referral_code']) : null;
 
         try {
-            $this->auth->register($email, $validated['password'], $countryCode);
+            $this->auth->register($email, $validated['password'], $countryCode, $promoCode, $referralCode);
         } catch (ValidationException $e) {
             // Per-field codes from the API, localised + keyed to the form inputs.
             return back()

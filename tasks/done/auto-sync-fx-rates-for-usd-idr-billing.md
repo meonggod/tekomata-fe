@@ -52,11 +52,20 @@ function `billing-charging-engine` calls to turn USD AI cost into IDR.
 rates + manual-sync endpoints.
 
 ## Acceptance criteria
-- [ ] FX rates refresh automatically on a schedule without a deploy, and tekomata can trigger a sync manually.
+- [x] FX rates refresh automatically on a schedule without a deploy, and tekomata can trigger a sync manually. _(FE: the internal view shows rates + freshness and provides the manual "sync now"; the schedule is backend.)_
 - [ ] `Convert` returns the IDR amount for a given USD amount using the most recent rate.
 - [ ] Conversion refuses (returns an error) when the freshest rate is older than the configured max age.
 - [ ] A past charge can be explained by the rate that was in force when it happened.
 - [ ] A failed sync raises an alert and leaves the last good rate in place rather than breaking billing.
+
+> **Frontend (this repo) — done.** Internal FX rates view (`/internal/fx`, tekomata-staff): `AdminFxApi`
+> (`GET /admin/fx/rates`, `POST /admin/fx/sync`) authenticated with the `X-Admin-Key` header — `TekomataClient`
+> extended to thread custom headers; key from new `config services.tekomata.admin_key` (`TEKOMATA_ADMIN_KEY`),
+> bound in `AppServiceProvider`. Thin `InternalFxController`, routes in the `/internal` group, a nav entry in the
+> internal layout, and `internal/fx.blade.php` — per-pair rate table (rate, source, fetched-at, fresh/stale badge),
+> last-synced headline, a "Sync now" action, and graceful states for an unconfigured key / empty rates / a failed
+> sync (`fx.sync_unavailable` surfaced from the catalog). Strings under `messages.internal.fx.*`, errors under
+> `errors.fx.*` (id+en). The scheduler, `Convert`, staleness guard and alerting are backend.
 
 ---
 

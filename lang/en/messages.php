@@ -21,6 +21,9 @@ return [
         'warehouses' => 'Warehouses',
         'currencies' => 'Currencies',
         'wallet' => 'Wallet',
+        'subscription' => 'Subscription',
+        'billing' => 'Billing',
+        'referral' => 'Referral',
         'inbox' => 'Inbox',
         'team_chat' => 'Team Chat',
         // Segmented tabs inside the merged Inbox menu (x-messages-tabs).
@@ -171,6 +174,14 @@ return [
         'country_search' => 'Search countries…',
         'country_no_results' => 'No matching countries',
         'country_clear' => 'Clear selection',
+        'promo_toggle' => 'Have a promo code?',
+        'promo_label' => 'Promo code',
+        'promo_placeholder' => 'e.g. WELCOME50',
+        'promo_hint' => 'Adds welcome credit to your wallet when you verify your email. Optional.',
+        'referral_toggle' => 'Have a referral code?',
+        'referral_label' => 'Referral code',
+        'referral_placeholder' => 'e.g. ACME-7K2P',
+        'referral_hint' => 'From a company that invited you. They earn a reward when you subscribe. Optional.',
         'submit' => 'Create account',
         'have_account' => 'Already have an account?',
         'different_email' => 'Use a different email',
@@ -816,6 +827,140 @@ return [
             'withdrawal' => 'Withdrawal',
             'refund' => 'Refund',
             'adjustment' => 'Adjustment',
+        ],
+    ],
+
+    'subscription' => [
+        'title' => 'Subscription',
+        'subtitle' => 'Pick a monthly plan. Higher tiers pay a lower per-query base rate. Plans are paid from your spendable wallet and renew automatically each month.',
+        'money_prefix' => 'Rp',
+        'spendable_label' => 'Spendable balance',
+        'topup_link' => 'Top up your wallet',
+        'topup_to_subscribe' => 'Top up to subscribe',
+
+        'current' => [
+            'label' => 'Current plan',
+            'free' => 'Free (Tier 0)',
+            'free_hint' => 'No monthly fee. Subscribe to a paid plan for a lower per-query rate.',
+            'paid_plan' => 'Paid plan',
+            'renews_on' => 'Renews on :date — your spendable wallet is charged automatically.',
+            'lapses_on' => 'Active until :date, then lapses back to the free plan.',
+            'base_rate' => 'Per-query base rate: :rate',
+        ],
+
+        'plans_title' => 'Available plans',
+        'plans_empty' => 'No plans are available right now. Please check back shortly.',
+        'per_month' => '/ month',
+        'base_rate_label' => 'Per-query rate',
+        'referral_label' => 'Referral share',
+        'current_badge' => 'Current',
+        'current_button' => 'Your current plan',
+        'subscribe_button' => 'Subscribe',
+        'switch_button' => 'Switch to this plan',
+
+        'subscribed' => 'You’re subscribed. The monthly price was charged to your spendable wallet.',
+        'cancelled' => 'Auto-renew turned off. Your plan stays active until the end of the period.',
+        'cancel_action' => 'Cancel subscription',
+        'cancel_confirm' => 'Turn off auto-renew? Your plan stays active until the end of the current period, then lapses to the free tier.',
+        'cancelled_notice' => 'Auto-renew is off. This plan lapses to the free tier at the end of the period.',
+    ],
+
+    'referral' => [
+        'title' => 'Referral',
+        'subtitle' => 'Share your code. When a company signs up with it and subscribes to a paid plan, you earn a share of their subscription — on every payment — into your withdrawable reward balance.',
+        'money_prefix' => 'Rp',
+
+        'share' => [
+            'label' => 'Your referral code',
+            'copy_code' => 'Copy code',
+            'copy_link' => 'Copy link',
+            'copied' => 'Copied',
+            'link_label' => 'Share link',
+            'hint' => 'No reward on signup alone — you earn only when a referred company pays for a subscription.',
+            'unavailable' => 'Your referral code isn’t available right now. Please try again shortly.',
+        ],
+
+        'reward' => [
+            'label' => 'Total reward earned',
+            'hint' => 'Credited to your reward balance.',
+            'wallet_link' => 'View in wallet',
+        ],
+
+        'list' => [
+            'title' => 'Companies you’ve referred',
+            'empty' => 'No referrals yet. Share your code to get started.',
+            'col_company' => 'Company',
+            'col_status' => 'Status',
+            'col_joined' => 'Joined',
+            'col_reward' => 'Reward earned',
+        ],
+
+        'status' => [
+            'attributed' => 'Signed up',
+            'rewarding' => 'Subscribed',
+            'void' => 'Void',
+        ],
+    ],
+
+    'billing' => [
+        'title' => 'Billing',
+        'subtitle' => 'Where your money went — usage, subscription and feature charges over the period.',
+        'money_prefix' => 'Rp',
+        'period_days' => ':days days',
+        'period_range' => ':from – :to',
+        'total_label' => 'Total spend',
+        'spendable_label' => 'Spendable balance',
+        'spendable_hint' => 'What’s left to spend.',
+        'spendable_link' => 'Top up',
+        'by_kind_title' => 'Breakdown by category',
+        'charges_title' => 'Charges',
+        'charges_empty' => 'No charges in this period.',
+        'pre_incurred' => 'Pre-authorized',
+
+        'kind' => [
+            'usage' => 'Usage',
+            'subscription' => 'Subscription',
+            'feature' => 'Features',
+            'ai' => 'AI cost',
+        ],
+    ],
+
+    // CS feature-assistant widget (homepage + in-app).
+    'cs' => [
+        'title' => 'Ask tekomata',
+        'subtitle' => 'Answers about features & pricing',
+        'open' => 'Ask tekomata',
+        'close' => 'Close',
+        'greeting' => 'Hi! Ask me anything about what tekomata can do — features, pricing, how things work.',
+        'placeholder' => 'Ask a question…',
+        'cta_text' => 'Like what you hear?',
+        'cta_link' => 'Create a free account',
+        'fallback' => 'I don’t have an answer for that yet, but our team will. Try rephrasing, or reach out.',
+        'error' => 'Sorry, I couldn’t answer that just now. Please try again in a moment.',
+    ],
+
+    // tekomata-internal staff area (/internal).
+    'internal' => [
+        'nav' => [
+            'dashboard' => 'Dashboard',
+            'fx' => 'FX rates',
+        ],
+        'fx' => [
+            'title' => 'FX rates',
+            'subtitle' => 'Current USD→IDR rates used to convert AI cost before billing. Refreshed automatically on a schedule.',
+            'sync_now' => 'Sync now',
+            'synced' => 'FX rates refreshed.',
+            'not_configured' => 'The FX admin key isn’t configured for this panel, so rates can’t be loaded. Set TEKOMATA_ADMIN_KEY.',
+            'last_synced' => 'Last synced',
+            'has_stale' => 'Some rates are stale',
+            'empty' => 'No rates yet. Trigger a sync to fetch them.',
+            'col_pair' => 'Pair',
+            'col_rate' => 'Rate',
+            'col_source' => 'Source',
+            'col_fetched' => 'Fetched at',
+            'col_status' => 'Status',
+            'fresh' => 'Fresh',
+            'stale' => 'Stale',
         ],
     ],
 

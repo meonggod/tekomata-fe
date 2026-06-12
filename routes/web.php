@@ -1,19 +1,24 @@
 <?php
 
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\CatalogImportController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\CompanySettingsController;
+use App\Http\Controllers\CsController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\InternalDashboardController;
+use App\Http\Controllers\InternalFxController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ResetPasswordController;
+use App\Http\Controllers\SubscriptionController;
 use App\Http\Controllers\TeamChatController;
 use App\Http\Controllers\VerifyController;
 use App\Http\Controllers\WalletController;
@@ -94,6 +99,12 @@ Route::post('/logout', function (Request $request, TokenStore $tokens, AuthApi $
 
     return redirect()->route('home');
 })->name('logout');
+
+// CS feature-assistant: the homepage + in-app help widget post here same-origin.
+// Public (no auth) so an un-authenticated visitor can ask; when a signed-in owner
+// asks, the controller attaches their session JWT server-side to attribute the
+// question to their company. Returns a small JSON envelope for the widget.
+Route::post('/cs/ask', [CsController::class, 'ask'])->name('cs.ask');
 
 // Bare /app → the tenant dashboard (auth/onboarding gates handle the rest).
 Route::redirect('/app', '/app/dashboard');
@@ -176,6 +187,24 @@ Route::prefix('app')->middleware('auth.api')->group(function () {
         Route::post('/wallet/convert', [WalletController::class, 'convert'])->name('wallet.convert');
         Route::post('/wallet/withdraw', [WalletController::class, 'withdraw'])->name('wallet.withdraw');
 
+        // Subscription: view purchasable monthly plans, the company's current
+        // plan + renewal/expiry, and subscribe / cancel. Subscribing debits the
+        // spendable wallet; an insufficient balance nudges a top-up. Tenant-scoped
+        // via the JWT (active company rides in the token, not the path).
+        Route::get('/subscription', [SubscriptionController::class, 'show'])->name('subscription.index');
+        Route::post('/subscription/subscribe', [SubscriptionController::class, 'subscribe'])->name('subscription.subscribe');
+        Route::post('/subscription/cancel', [SubscriptionController::class, 'cancel'])->name('subscription.cancel');
+
+        // Referral: the company's shareable code/link, the companies it referred,
+        // and reward earned (credited to the withdrawable reward wallet). View-only
+        // here — the code is issued lazily by the API. Tenant-scoped via the JWT.
+        Route::get('/referral', [ReferralController::class, 'show'])->name('referral.index');
+
+        // Billing: aggregated, categorized cost breakdown (usage / subscription /
+        // feature / AI) over a chosen period, alongside the wallet balance. Reads
+        // the line-itemed charge history; complements the wallet's raw ledger.
+        Route::get('/billing', [BillingController::class, 'show'])->name('billing.index');
+
         Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
         Route::post('/settings/currencies', [CurrencyController::class, 'enable'])->name('currencies.enable');
         Route::put('/settings/currencies/{code}/default', [CurrencyController::class, 'setDefault'])->name('currencies.default');
@@ -225,4 +254,9 @@ Route::prefix('app')->middleware('auth.api')->group(function () {
 Route::prefix('internal')->middleware(['auth.api', 'internal.staff'])->group(function () {
     Route::redirect('/', '/internal/dashboard');
     Route::get('/dashboard', [InternalDashboardController::class, 'index'])->name('internal.dashboard');
+
+    // FX rates: current USD→IDR rates + freshness, with a manual "sync now". Talks
+    // to the platform-admin FX endpoints (X-Admin-Key), not the tenant JWT.
+    Route::get('/fx', [InternalFxController::class, 'index'])->name('internal.fx.index');
+    Route::post('/fx/sync', [InternalFxController::class, 'sync'])->name('internal.fx.sync');
 }); // end internal

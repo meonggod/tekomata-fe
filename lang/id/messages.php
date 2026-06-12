@@ -22,6 +22,9 @@ return [
         'warehouses' => 'Gudang',
         'currencies' => 'Mata Uang',
         'wallet' => 'Dompet',
+        'subscription' => 'Langganan',
+        'billing' => 'Tagihan',
+        'referral' => 'Referral',
         'inbox' => 'Kotak Masuk',
         'team_chat' => 'Chat Tim',
         // Tab tersegmentasi di dalam menu Kotak Masuk gabungan (x-messages-tabs).
@@ -172,6 +175,14 @@ return [
         'country_search' => 'Cari negara…',
         'country_no_results' => 'Tidak ada negara yang cocok',
         'country_clear' => 'Hapus pilihan',
+        'promo_toggle' => 'Punya kode promo?',
+        'promo_label' => 'Kode promo',
+        'promo_placeholder' => 'mis. WELCOME50',
+        'promo_hint' => 'Menambahkan kredit sambutan ke dompet Anda saat email diverifikasi. Opsional.',
+        'referral_toggle' => 'Punya kode referral?',
+        'referral_label' => 'Kode referral',
+        'referral_placeholder' => 'mis. ACME-7K2P',
+        'referral_hint' => 'Dari perusahaan yang mengundang Anda. Mereka mendapat reward saat Anda berlangganan. Opsional.',
         'submit' => 'Buat akun',
         'have_account' => 'Sudah punya akun?',
         'different_email' => 'Pakai email lain',
@@ -817,6 +828,140 @@ return [
             'withdrawal' => 'Penarikan',
             'refund' => 'Pengembalian',
             'adjustment' => 'Penyesuaian',
+        ],
+    ],
+
+    'subscription' => [
+        'title' => 'Langganan',
+        'subtitle' => 'Pilih paket bulanan. Tier lebih tinggi membayar tarif dasar per-kueri lebih rendah. Paket dibayar dari saldo dompet yang dapat dibelanjakan dan diperpanjang otomatis setiap bulan.',
+        'money_prefix' => 'Rp',
+        'spendable_label' => 'Saldo dapat dibelanjakan',
+        'topup_link' => 'Isi ulang dompet Anda',
+        'topup_to_subscribe' => 'Isi ulang untuk berlangganan',
+
+        'current' => [
+            'label' => 'Paket saat ini',
+            'free' => 'Gratis (Tier 0)',
+            'free_hint' => 'Tanpa biaya bulanan. Berlangganan paket berbayar untuk tarif per-kueri lebih rendah.',
+            'paid_plan' => 'Paket berbayar',
+            'renews_on' => 'Diperpanjang pada :date — dompet Anda akan ditagih otomatis.',
+            'lapses_on' => 'Aktif hingga :date, lalu kembali ke paket gratis.',
+            'base_rate' => 'Tarif dasar per-kueri: :rate',
+        ],
+
+        'plans_title' => 'Paket tersedia',
+        'plans_empty' => 'Belum ada paket yang tersedia saat ini. Silakan periksa kembali nanti.',
+        'per_month' => '/ bulan',
+        'base_rate_label' => 'Tarif per-kueri',
+        'referral_label' => 'Bagi hasil referral',
+        'current_badge' => 'Saat ini',
+        'current_button' => 'Paket Anda saat ini',
+        'subscribe_button' => 'Berlangganan',
+        'switch_button' => 'Pindah ke paket ini',
+
+        'subscribed' => 'Anda telah berlangganan. Harga bulanan telah ditagih ke saldo dompet Anda.',
+        'cancelled' => 'Perpanjangan otomatis dimatikan. Paket Anda tetap aktif hingga akhir periode.',
+        'cancel_action' => 'Batalkan langganan',
+        'cancel_confirm' => 'Matikan perpanjangan otomatis? Paket Anda tetap aktif hingga akhir periode berjalan, lalu kembali ke tier gratis.',
+        'cancelled_notice' => 'Perpanjangan otomatis mati. Paket ini kembali ke tier gratis di akhir periode.',
+    ],
+
+    'referral' => [
+        'title' => 'Referral',
+        'subtitle' => 'Bagikan kode Anda. Saat sebuah perusahaan mendaftar dengan kode itu dan berlangganan paket berbayar, Anda mendapat bagian dari langganannya — pada setiap pembayaran — ke saldo reward yang dapat ditarik.',
+        'money_prefix' => 'Rp',
+
+        'share' => [
+            'label' => 'Kode referral Anda',
+            'copy_code' => 'Salin kode',
+            'copy_link' => 'Salin tautan',
+            'copied' => 'Tersalin',
+            'link_label' => 'Tautan berbagi',
+            'hint' => 'Tidak ada reward hanya dari pendaftaran — Anda baru mendapat reward saat perusahaan yang direferensikan membayar langganan.',
+            'unavailable' => 'Kode referral Anda sedang tidak tersedia. Silakan coba lagi sebentar.',
+        ],
+
+        'reward' => [
+            'label' => 'Total reward diperoleh',
+            'hint' => 'Dikreditkan ke saldo reward Anda.',
+            'wallet_link' => 'Lihat di dompet',
+        ],
+
+        'list' => [
+            'title' => 'Perusahaan yang Anda referensikan',
+            'empty' => 'Belum ada referral. Bagikan kode Anda untuk memulai.',
+            'col_company' => 'Perusahaan',
+            'col_status' => 'Status',
+            'col_joined' => 'Bergabung',
+            'col_reward' => 'Reward diperoleh',
+        ],
+
+        'status' => [
+            'attributed' => 'Mendaftar',
+            'rewarding' => 'Berlangganan',
+            'void' => 'Batal',
+        ],
+    ],
+
+    'billing' => [
+        'title' => 'Tagihan',
+        'subtitle' => 'Ke mana uang Anda pergi — biaya penggunaan, langganan, dan fitur selama periode.',
+        'money_prefix' => 'Rp',
+        'period_days' => ':days hari',
+        'period_range' => ':from – :to',
+        'total_label' => 'Total pengeluaran',
+        'spendable_label' => 'Saldo dapat dibelanjakan',
+        'spendable_hint' => 'Sisa yang dapat dibelanjakan.',
+        'spendable_link' => 'Isi ulang',
+        'by_kind_title' => 'Rincian per kategori',
+        'charges_title' => 'Tagihan',
+        'charges_empty' => 'Tidak ada tagihan pada periode ini.',
+        'pre_incurred' => 'Pra-otorisasi',
+
+        'kind' => [
+            'usage' => 'Penggunaan',
+            'subscription' => 'Langganan',
+            'feature' => 'Fitur',
+            'ai' => 'Biaya AI',
+        ],
+    ],
+
+    // Widget asisten fitur CS (beranda + dalam-aplikasi).
+    'cs' => [
+        'title' => 'Tanya tekomata',
+        'subtitle' => 'Jawaban soal fitur & harga',
+        'open' => 'Tanya tekomata',
+        'close' => 'Tutup',
+        'greeting' => 'Hai! Tanyakan apa saja tentang yang bisa dilakukan tekomata — fitur, harga, cara kerjanya.',
+        'placeholder' => 'Ajukan pertanyaan…',
+        'cta_text' => 'Tertarik?',
+        'cta_link' => 'Buat akun gratis',
+        'fallback' => 'Saya belum punya jawabannya, tapi tim kami punya. Coba ubah pertanyaan, atau hubungi kami.',
+        'error' => 'Maaf, saya belum bisa menjawab itu sekarang. Silakan coba lagi sebentar.',
+    ],
+
+    // Area staf internal tekomata (/internal).
+    'internal' => [
+        'nav' => [
+            'dashboard' => 'Dasbor',
+            'fx' => 'Kurs FX',
+        ],
+        'fx' => [
+            'title' => 'Kurs FX',
+            'subtitle' => 'Kurs USD→IDR terkini untuk mengonversi biaya AI sebelum penagihan. Diperbarui otomatis sesuai jadwal.',
+            'sync_now' => 'Sinkronkan sekarang',
+            'synced' => 'Kurs FX diperbarui.',
+            'not_configured' => 'Kunci admin FX belum dikonfigurasi untuk panel ini, sehingga kurs tidak dapat dimuat. Setel TEKOMATA_ADMIN_KEY.',
+            'last_synced' => 'Terakhir disinkronkan',
+            'has_stale' => 'Beberapa kurs sudah usang',
+            'empty' => 'Belum ada kurs. Picu sinkronisasi untuk mengambilnya.',
+            'col_pair' => 'Pasangan',
+            'col_rate' => 'Kurs',
+            'col_source' => 'Sumber',
+            'col_fetched' => 'Diambil pada',
+            'col_status' => 'Status',
+            'fresh' => 'Segar',
+            'stale' => 'Usang',
         ],
     ],
 

@@ -64,43 +64,56 @@ return [
 
     // Pengaturan perusahaan.
     'settings' => [
-        'email_not_found'        => 'Email tidak ditemukan.',
-        'email_taken'            => 'Alamat email itu sudah ada dalam daftarmu.',
-        'last_email'             => 'Kamu harus mempertahankan setidaknya satu email notifikasi.',
-        'whatsapp_not_found'     => 'Nomor WhatsApp tidak ditemukan.',
-        'whatsapp_taken'         => 'Nomor itu sudah ada dalam daftarmu.',
-        'last_whatsapp_number'   => 'Kamu harus mempertahankan setidaknya satu nomor WhatsApp.',
+        'email_not_found' => 'Email tidak ditemukan.',
+        'email_taken' => 'Alamat email itu sudah ada dalam daftarmu.',
+        'last_email' => 'Kamu harus mempertahankan setidaknya satu email notifikasi.',
+        'whatsapp_not_found' => 'Nomor WhatsApp tidak ditemukan.',
+        'whatsapp_taken' => 'Nomor itu sudah ada dalam daftarmu.',
+        'last_whatsapp_number' => 'Kamu harus mempertahankan setidaknya satu nomor WhatsApp.',
     ],
 
     // Dompet IDR prabayar.
     'wallet' => [
-        'invalid_amount'      => 'Mohon masukkan jumlah yang valid dan lebih dari nol.',
+        'invalid_amount' => 'Mohon masukkan jumlah yang valid dan lebih dari nol.',
         'insufficient_reward' => 'Jumlah itu melebihi saldo reward Anda. Masukkan jumlah yang lebih kecil.',
         'withdraw_not_allowed' => 'Penarikan memerlukan bisnis terverifikasi (KYB) dan rekening bank terlebih dahulu.',
-        'payment_unavailable'  => 'Penyedia pembayaran sedang tidak tersedia. Silakan coba lagi sebentar.',
+        'payment_unavailable' => 'Penyedia pembayaran sedang tidak tersedia. Silakan coba lagi sebentar.',
+    ],
+
+    // Paket langganan.
+    'subscription' => [
+        'insufficient_balance' => 'Saldo yang dapat dibelanjakan tidak cukup untuk harga bulanan paket ini. Isi ulang dompet Anda, lalu berlangganan.',
+        'plan_not_found' => 'Paket itu sudah tidak tersedia. Silakan pilih paket lain.',
+    ],
+
+    // Kurs FX (admin platform).
+    'fx' => [
+        'sync_unavailable' => 'Penyedia kurs belum dikonfigurasi, sehingga kurs tidak dapat disinkronkan. Kurs terakhir yang valid tetap digunakan.',
+        'rate_stale' => 'Kurs terbaru terlalu lama untuk dijadikan dasar penagihan. Sinkronkan kurs lalu coba lagi.',
+        'rate_unavailable' => 'Belum ada kurs untuk pasangan mata uang itu.',
     ],
 
     // Omnichannel / inbox.
     'omnichannel' => [
-        'conversation_not_found'  => 'Percakapan tidak ditemukan.',
-        'send_window_closed'      => 'Jendela pesan sudah ditutup. Pelanggan harus mengirim pesan dulu untuk membukanya kembali.',
-        'channel_not_registered'  => 'Kanal ini belum terhubung. Atur di Pengaturan terlebih dahulu.',
+        'conversation_not_found' => 'Percakapan tidak ditemukan.',
+        'send_window_closed' => 'Jendela pesan sudah ditutup. Pelanggan harus mengirim pesan dulu untuk membukanya kembali.',
+        'channel_not_registered' => 'Kanal ini belum terhubung. Atur di Pengaturan terlebih dahulu.',
     ],
 
     // Kode validasi per-field (dipakai di error.fields[].code).
     'validation' => [
-        'required'             => 'Kolom ini wajib diisi.',
-        'email'                => 'Mohon masukkan alamat email yang valid.',
-        'too_short'            => 'Minimal :min karakter.',
-        'too_long'             => 'Maksimal :max karakter.',
-        'invalid_country'      => 'Mohon pilih negara yang valid.',
-        'decimal'              => 'Mohon masukkan angka desimal yang valid.',
+        'required' => 'Kolom ini wajib diisi.',
+        'email' => 'Mohon masukkan alamat email yang valid.',
+        'too_short' => 'Minimal :min karakter.',
+        'too_long' => 'Maksimal :max karakter.',
+        'invalid_country' => 'Mohon pilih negara yang valid.',
+        'decimal' => 'Mohon masukkan angka desimal yang valid.',
         'fraction_not_allowed' => 'Satuan ini tidak mengizinkan jumlah desimal.',
-        'invalid_value'        => 'Mohon pilih opsi yang valid.',
-        'invalid_phone'        => 'Mohon masukkan nomor telepon yang valid dalam format E.164 (mis. +6281234567890).',
-        'invalid_timezone'     => 'Mohon pilih zona waktu yang valid.',
-        'time_range'           => 'Waktu buka harus sebelum waktu tutup.',
-        'overlap'              => 'Slot waktu pada hari yang sama tidak boleh tumpang tindih.',
+        'invalid_value' => 'Mohon pilih opsi yang valid.',
+        'invalid_phone' => 'Mohon masukkan nomor telepon yang valid dalam format E.164 (mis. +6281234567890).',
+        'invalid_timezone' => 'Mohon pilih zona waktu yang valid.',
+        'time_range' => 'Waktu buka harus sebelum waktu tutup.',
+        'overlap' => 'Slot waktu pada hari yang sama tidak boleh tumpang tindih.',
     ],
 
 ];

@@ -2601,3 +2601,98 @@ function initCatalogImport() {
 
 document.addEventListener('DOMContentLoaded', initCatalogImport);
 
+// ---------------------------------------------------------------------------
+// CS feature-assistant widget (homepage + in-app). A floating launcher + chat
+// panel that asks the tekomata-owned assistant about features/pricing via the
+// same-origin /cs/ask proxy (which attaches the session JWT in-app). Synchronous
+// request/response — no polling. Progressive enhancement over x-cs-widget.
+// ---------------------------------------------------------------------------
+function initCsWidget() {
+    const root = document.querySelector('[data-cs-widget]');
+    if (!root) return;
+
+    const panel    = root.querySelector('[data-cs-panel]');
+    const toggle   = root.querySelector('[data-cs-toggle]');
+    const closeBtn = root.querySelector('[data-cs-close]');
+    const iconOpen = root.querySelector('[data-cs-icon-open]');
+    const iconClose = root.querySelector('[data-cs-icon-close]');
+    const messages = root.querySelector('[data-cs-messages]');
+    const form     = root.querySelector('[data-cs-form]');
+    const input    = root.querySelector('[data-cs-input]');
+    const sendBtn  = root.querySelector('[data-cs-send]');
+    if (!panel || !toggle || !form || !input || !messages) return;
+
+    const surface = root.dataset.csSurface || 'homepage';
+    const askUrl  = root.dataset.csAskUrl;
+    const csrf = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+
+    const setOpen = (open) => {
+        panel.hidden = !open;
+        if (iconOpen) iconOpen.hidden = open;
+        if (iconClose) iconClose.hidden = !open;
+        if (open) input.focus();
+    };
+    toggle.addEventListener('click', () => setOpen(panel.hidden));
+    closeBtn?.addEventListener('click', () => setOpen(false));
+
+    const scrollDown = () => { messages.scrollTop = messages.scrollHeight; };
+
+    // Always build bubbles via textContent — never inject answer HTML.
+    const bubble = (text, who) => {
+        const wrap = document.createElement('div');
+        wrap.className = who === 'user' ? 'flex justify-end' : 'flex';
+        const b = document.createElement('div');
+        b.className = who === 'user'
+            ? 'max-w-[85%] rounded-2xl rounded-tr-sm bg-indigo-600 px-3.5 py-2 text-sm text-white'
+            : 'max-w-[85%] whitespace-pre-line rounded-2xl rounded-tl-sm bg-gray-100 px-3.5 py-2 text-sm text-gray-800';
+        b.textContent = text;
+        wrap.appendChild(b);
+        messages.appendChild(wrap);
+        scrollDown();
+        return b;
+    };
+
+    let busy = false;
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const question = input.value.trim();
+        if (!question || busy) return;
+
+        busy = true;
+        if (sendBtn) sendBtn.disabled = true;
+        bubble(question, 'user');
+        input.value = '';
+
+        // Placeholder "thinking…" bubble, replaced when the answer lands.
+        const pending = bubble('…', 'bot');
+        pending.classList.add('animate-pulse');
+
+        try {
+            const res = await fetch(askUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrf,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ question, surface }),
+            });
+            const data = res.ok ? await res.json() : {};
+            pending.classList.remove('animate-pulse');
+            pending.textContent = (data && typeof data.answer === 'string' && data.answer)
+                ? data.answer
+                : (root.dataset.csErrorText || 'Sorry, something went wrong. Please try again.');
+        } catch {
+            pending.classList.remove('animate-pulse');
+            pending.textContent = root.dataset.csErrorText || 'Sorry, something went wrong. Please try again.';
+        } finally {
+            busy = false;
+            if (sendBtn) sendBtn.disabled = false;
+            input.focus();
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initCsWidget);
+

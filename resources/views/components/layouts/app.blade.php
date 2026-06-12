@@ -50,5 +50,9 @@
     {{-- Global, dismissible "something went wrong" modal for unexpected backend
          failures (shown only when the api_error flash is present). --}}
     <x-error-modal />
+
+    {{-- In-app help assistant: same CS assistant as the homepage, but the proxy
+         attaches the owner's session JWT so answers can be company-aware. --}}
+    <x-cs-widget surface="in_app" />
 </body>
 </html>

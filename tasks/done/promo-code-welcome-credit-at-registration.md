@@ -46,15 +46,22 @@ idempotent so a replayed promotion can't double-credit.
 code to `/auth/register` and shows the granted credit (or the rejection reason) on success.
 
 ## Acceptance criteria
-- [ ] A registering company can enter an optional promo code and, if valid, receives the configured
-IDR credit in its **spendable** wallet (usable in tekomata, not withdrawable).
-- [ ] Invalid, expired, used-up, or already-redeemed codes are rejected with a clear reason and grant
-no credit; registration still succeeds without a code.
+- [x] A registering company can enter an optional promo code and, if valid, receives the configured
+IDR credit in its **spendable** wallet (usable in tekomata, not withdrawable). _(FE: the field + forwarding; the grant is backend.)_
+- [x] Invalid, expired, used-up, or already-redeemed codes are rejected with a clear reason and grant
+no credit; registration still succeeds without a code. _(FE: surfaces the API's 422 `fields[promo_code]` on the field; the code is optional.)_
 - [ ] A company can redeem a given promo code at most once; a replayed registration promotion does
 not double-credit.
 - [ ] Promo codes (amount, validity window, usage cap, active flag) are managed from the internal
 dashboard without a deploy.
 - [ ] The granted welcome credit appears in the company's wallet history as a spendable credit.
+
+> **Frontend (this repo) — done.** Promo-code field on registration: optional `promo_code` captured in
+> `RegisterController` (prefillable from `?promo_code=…`), forwarded via `AuthApi::register(...$promoCode)`,
+> and a collapsible "Have a promo code?" field on `auth/register.blade.php` that prefills + auto-opens on a
+> rejected code and renders the API's 422 `fields[promo_code]` (`validation.invalid_value`) inline. Strings
+> under `messages.register.promo_*` (id+en). Registration still succeeds with no code. Backend-only criteria
+> (one-time redemption, internal CRUD, wallet ledger entry) left as the backend marked them.
 
 ---
 

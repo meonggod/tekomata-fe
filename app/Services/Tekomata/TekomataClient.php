@@ -32,20 +32,22 @@ class TekomataClient
 
     /**
      * @param  array<string,mixed>  $query
+     * @param  array<string,string>  $headers  Extra request headers (e.g. X-Admin-Key for platform-admin calls).
      * @return array<string,mixed>
      */
-    public function get(string $path, array $query = [], ?string $token = null): array
+    public function get(string $path, array $query = [], ?string $token = null, array $headers = []): array
     {
-        return $this->request('GET', $path, ['query' => $query], $token);
+        return $this->request('GET', $path, ['query' => $query], $token, $headers);
     }
 
     /**
      * @param  array<string,mixed>  $data
+     * @param  array<string,string>  $headers  Extra request headers (e.g. X-Admin-Key for platform-admin calls).
      * @return array<string,mixed>
      */
-    public function post(string $path, array $data = [], ?string $token = null): array
+    public function post(string $path, array $data = [], ?string $token = null, array $headers = []): array
     {
-        return $this->request('POST', $path, ['json' => $data], $token);
+        return $this->request('POST', $path, ['json' => $data], $token, $headers);
     }
 
     /**
@@ -116,17 +118,18 @@ class TekomataClient
      * Core request: send, retry transient failures, then map the result.
      *
      * @param  array<string,mixed>  $options  Guzzle-style options (json|query).
+     * @param  array<string,string>  $headers  Extra request headers (e.g. X-Admin-Key).
      * @return array<string,mixed>
      *
      * @throws TekomataApiException
      */
-    public function request(string $method, string $path, array $options = [], ?string $token = null): array
+    public function request(string $method, string $path, array $options = [], ?string $token = null, array $headers = []): array
     {
         $attempts = max(1, $this->config['retries'] + 1);
 
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
             try {
-                $response = $this->pending($token)->send($method, ltrim($path, '/'), $options);
+                $response = $this->pending($token, $headers)->send($method, ltrim($path, '/'), $options);
             } catch (ConnectionException $e) {
                 if ($attempt < $attempts) {
                     $this->backoff($attempt);
@@ -153,13 +156,20 @@ class TekomataClient
         throw new ApiUnavailableException('The tekomata API is unreachable. Please try again shortly.');
     }
 
-    private function pending(?string $token): PendingRequest
+    /**
+     * @param  array<string,string>  $headers
+     */
+    private function pending(?string $token, array $headers = []): PendingRequest
     {
         $request = Http::baseUrl($this->config['base_url'])
             ->timeout($this->config['timeout'])
             ->connectTimeout($this->config['connect_timeout'])
             ->acceptJson()
             ->asJson();
+
+        if ($headers !== []) {
+            $request = $request->withHeaders($headers);
+        }
 
         return $token ? $request->withToken($token) : $request;
     }

@@ -64,9 +64,9 @@ the wallet page (withdrawable / convertible there).
 - **Background:** sits in the existing register flow; passes the code to `/auth/register`.
 
 ## Acceptance criteria
-- [ ] Each company has a unique, shareable referral code/link.
-- [ ] Signing up with a valid code attributes the new company to the referrer company; the attribution
-is fixed and a company can be attributed to at most one referrer.
+- [x] Each company has a unique, shareable referral code/link. _(FE: referral page surfaces the code + share link with copy.)_
+- [x] Signing up with a valid code attributes the new company to the referrer company; the attribution
+is fixed and a company can be attributed to at most one referrer. _(FE: optional referral-code field on register, prefilled from `?ref=`; binding/immutability is backend.)_
 - [ ] On **every** subscription payment by a referred company (initial and each renewal), the
 referrer's **reward** wallet is credited with the configured percentage of that subscription's price.
 - [ ] No reward is paid on signup alone — only on a referee's subscription payment.
@@ -74,6 +74,15 @@ referrer's **reward** wallet is credited with the configured percentage of that 
 - [ ] Every referral reward appears in the referrer's wallet history as a **reward** (withdrawable) entry.
 - [ ] The referral percentage is set per subscription plan (see `subscription-plans`) and is
 configurable from the internal dashboard without a deploy.
+
+> **Frontend (this repo) — done.** Two units: (1) **Referral page** (`/app/referral`) — `ReferralApi::overview`
+> (`GET /api/v1/referral`), thin `ReferralController`, route under `app`+`ensure.onboarded`, sidebar nav entry,
+> `referral/index.blade.php` showing the code + share link (copy via the existing `[data-copy]` handler), total
+> reward, and a referred-companies table (status badge + accrued reward); rewards link out to the wallet.
+> (2) **Referral-code field on registration** — optional `referral_code` captured in `RegisterController`
+> (prefilled from `?ref=` / `?referral_code=`), forwarded via `AuthApi::register(...$referralCode)`, collapsible
+> field on `auth/register.blade.php` rendering the API's 422 `fields[referral_code]`. Strings under
+> `messages.referral.*` + `messages.register.referral_*` (id+en). Accrual / anti-abuse / per-plan % are backend.
 
 ---
 

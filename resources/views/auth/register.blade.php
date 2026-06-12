@@ -98,6 +98,59 @@
                         </div>
                     @endif
 
+                    {{-- Promo code (optional). Grants welcome credit to the new
+                         company's spendable wallet. Prefillable from a campaign
+                         link (?promo_code=…); opens itself when prefilled or on
+                         a rejected code so the user sees the reason. --}}
+                    @php $promoPrefill = old('promo_code', $promoCode ?? ''); @endphp
+                    <details class="group/promo" {{ $promoPrefill !== '' || $errors->has('promo_code') ? 'open' : '' }}>
+                        <summary class="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                            <svg class="h-4 w-4 transition-transform group-open/promo:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                            </svg>
+                            {{ __('messages.register.promo_toggle') }}
+                        </summary>
+                        <div class="mt-3">
+                            <label for="promo_code" class="block text-sm font-medium text-gray-700">
+                                {{ __('messages.register.promo_label') }}
+                            </label>
+                            <input id="promo_code" name="promo_code" type="text" value="{{ $promoPrefill }}"
+                                   autocomplete="off" placeholder="{{ __('messages.register.promo_placeholder') }}"
+                                   class="mt-1.5 block w-full rounded-lg border bg-white py-2.5 px-3 text-sm uppercase text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 @error('promo_code') border-red-400 focus:border-red-500 focus:ring-red-500/40 @else border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/40 @enderror">
+                            @error('promo_code')
+                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
+                            @else
+                                <p class="mt-1.5 text-xs text-gray-500">{{ __('messages.register.promo_hint') }}</p>
+                            @enderror
+                        </div>
+                    </details>
+
+                    {{-- Referral code (optional). Attributes the new company to a
+                         referrer. Prefillable from a share link (?ref=…); opens
+                         itself when prefilled or on a rejected code. --}}
+                    @php $referralPrefill = old('referral_code', $referralCode ?? ''); @endphp
+                    <details class="group/ref" {{ $referralPrefill !== '' || $errors->has('referral_code') ? 'open' : '' }}>
+                        <summary class="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                            <svg class="h-4 w-4 transition-transform group-open/ref:rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                            </svg>
+                            {{ __('messages.register.referral_toggle') }}
+                        </summary>
+                        <div class="mt-3">
+                            <label for="referral_code" class="block text-sm font-medium text-gray-700">
+                                {{ __('messages.register.referral_label') }}
+                            </label>
+                            <input id="referral_code" name="referral_code" type="text" value="{{ $referralPrefill }}"
+                                   autocomplete="off" placeholder="{{ __('messages.register.referral_placeholder') }}"
+                                   class="mt-1.5 block w-full rounded-lg border bg-white py-2.5 px-3 text-sm uppercase text-gray-900 placeholder-gray-400 shadow-sm transition focus:outline-none focus:ring-2 @error('referral_code') border-red-400 focus:border-red-500 focus:ring-red-500/40 @else border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/40 @enderror">
+                            @error('referral_code')
+                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
+                            @else
+                                <p class="mt-1.5 text-xs text-gray-500">{{ __('messages.register.referral_hint') }}</p>
+                            @enderror
+                        </div>
+                    </details>
+
                     <button type="submit"
                             class="group flex w-full items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2">
                         {{ __('messages.register.submit') }}

@@ -103,4 +103,8 @@
     </section>
 
     <x-site-footer />
+
+    {{-- Ask-anything CS assistant: grounded answers about features/pricing, with
+         a sign-up nudge. No login required. --}}
+    <x-cs-widget surface="homepage" />
 </x-layouts.public>

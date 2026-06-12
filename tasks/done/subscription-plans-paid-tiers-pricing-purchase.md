@@ -76,7 +76,16 @@ driving the balance negative.
 - [ ] Each subscription charge emits a signal that the referral revenue-share (`referral-system`)
 and usage metering consume; charges are idempotent per billing month (no double-charge on retry).
 - [ ] A company's effective per-query base rate reflects its active plan (free Tier 0 when lapsed/unsubscribed).
-- [ ] An owner can view plans, their current subscription, and subscribe/cancel from the panel.
+- [x] An owner can view plans, their current subscription, and subscribe/cancel from the panel.
+
+> **Frontend (this repo) — done.** Plans & subscription page (`/app/subscription`):
+> `SubscriptionApi` (plans/current/subscribe/cancel against the JWT-scoped `/api/v1/subscription*`),
+> thin `SubscriptionController`, routes under the `app` + `ensure.onboarded` group, sidebar nav entry,
+> and `subscription/index.blade.php` — shows the current plan (free Tier 0 vs paid, with renewal/expiry
+> + auto-renew state), the spendable balance, and a plan grid with subscribe / switch / cancel actions.
+> Insufficient balance is gated client-side (per-plan "top up to subscribe" → wallet) and surfaced from
+> the API's `subscription.insufficient_balance` (409) on submit. Localised (id default + en). Backend-only
+> criteria left as the backend marked them.
 
 ---
 
