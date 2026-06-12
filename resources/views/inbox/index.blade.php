@@ -48,7 +48,8 @@
      data-i18n-handback="{{ __('messages.inbox.handback') }}"
      data-i18n-takeover-success="{{ __('messages.inbox.takeover_success') }}"
      data-i18n-handback-success="{{ __('messages.inbox.handback_success') }}"
-     data-i18n-error-handoff="{{ __('messages.inbox.error_handoff') }}">
+     data-i18n-error-handoff="{{ __('messages.inbox.error_handoff') }}"
+     data-i18n-send-failed="{{ __('messages.inbox.send_failed') }}">
 
     {{-- Toast container --}}
     <div id="inbox-toast" class="pointer-events-none fixed right-4 top-4 z-50 space-y-2" aria-live="polite"></div>
@@ -104,7 +105,7 @@
     {{-- Right panel: thread or empty state --}}
     <div id="inbox-thread-panel" class="hidden flex-1 flex-col bg-gray-50 lg:flex">
         @if (isset($conversation) && !empty($conversation))
-            @include('inbox.partials.thread', ['conversation' => $conversation, 'messages' => $threadMessages ?? []])
+            @include('inbox.partials.thread', ['conversation' => $conversation, 'messages' => $threadMessages ?? [], 'page' => $threadPage ?? null])
         @else
             <div class="flex flex-1 items-center justify-center">
                 <div class="text-center">

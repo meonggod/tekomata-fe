@@ -20,6 +20,7 @@ return [
         'categories' => 'Categories',
         'warehouses' => 'Warehouses',
         'currencies' => 'Currencies',
+        'wallet' => 'Wallet',
         'inbox' => 'Inbox',
         'team_chat' => 'Team Chat',
         // Segmented tabs inside the merged Inbox menu (x-messages-tabs).
@@ -656,6 +657,7 @@ return [
         'reply_placeholder' => 'Type your reply...',
         'reply_submit' => 'Send',
         'reply_success' => 'Reply sent.',
+        'send_failed' => 'Failed to send',
         'whatsapp_window_hint' => 'WhatsApp 24h messaging window',
         'instagram_dm_label' => 'Direct Message',
         'instagram_comment_label' => 'Comment Reply',
@@ -725,6 +727,7 @@ return [
         // Composer
         'reply_placeholder' => 'Type a message...',
         'reply_submit' => 'Send',
+        'send_failed' => 'Failed to send',
 
         // Success
         'reply_success' => 'Message sent.',
@@ -736,6 +739,84 @@ return [
         'error_send' => 'Could not send message.',
         'error_create' => 'Could not create conversation.',
         'error_add_members' => 'Could not add members.',
+    ],
+
+    'wallet' => [
+        'title' => 'Wallet',
+        'subtitle' => 'Top up the balance that powers your assistant, and manage referral rewards.',
+        'money_prefix' => 'Rp',
+
+        'spendable' => [
+            'label' => 'Spendable balance',
+            'hint' => 'Pays for every billable action — assistant replies, lookups, subscriptions.',
+            'low_warning' => 'Your spendable balance is running low. Top up to keep your assistant answering.',
+            'empty_warning' => 'Your spendable balance is empty. Your assistant has stopped answering — top up to resume.',
+        ],
+        'reward' => [
+            'label' => 'Reward balance',
+            'hint' => 'Earned from referrals. Withdraw to a bank, or convert it to spendable to use here.',
+        ],
+
+        'topup' => [
+            'title' => 'Top up',
+            'subtitle' => 'Add funds to your spendable balance via our payment provider.',
+            'amount_label' => 'Amount (IDR)',
+            'amount_placeholder' => 'e.g. 100000',
+            'submit' => 'Continue to payment',
+            'started' => 'Top-up started. Your balance updates once the payment is confirmed.',
+        ],
+
+        'convert' => [
+            'title' => 'Convert reward → spendable',
+            'subtitle' => 'Move reward funds into your spendable balance so they can pay for tekomata. Converted funds can no longer be withdrawn.',
+            'amount_label' => 'Amount to convert (IDR)',
+            'amount_placeholder' => 'e.g. 50000',
+            'submit' => 'Convert',
+            'done' => 'Reward funds converted to spendable.',
+        ],
+
+        'withdraw' => [
+            'title' => 'Withdraw reward to bank',
+            'subtitle' => 'Cash out reward funds to a verified bank account. Spendable (top-up) funds can’t be withdrawn.',
+            'gated' => 'Withdrawals require a verified business profile (KYB) and bank account.',
+            'gated_link' => 'Complete verification in Settings',
+            'amount_label' => 'Amount (IDR)',
+            'amount_placeholder' => 'e.g. 50000',
+            'bank_code_label' => 'Bank',
+            'bank_code_placeholder' => 'e.g. BCA',
+            'account_number_label' => 'Account number',
+            'account_holder_label' => 'Account holder name',
+            'submit' => 'Request withdrawal',
+            'requested' => 'Withdrawal requested. Funds settle once the payout is confirmed.',
+        ],
+
+        'history' => [
+            'title' => 'Transaction history',
+            'empty' => 'No transactions yet.',
+            'col_date' => 'Date',
+            'col_type' => 'Type',
+            'col_bucket' => 'Bucket',
+            'col_amount' => 'Amount',
+            'col_balance' => 'Balance after',
+            'prev' => 'Newer',
+            'next' => 'Older',
+        ],
+
+        'bucket' => [
+            'spendable' => 'Spendable',
+            'reward' => 'Reward',
+        ],
+
+        'type' => [
+            'topup' => 'Top-up',
+            'debit' => 'Charge',
+            'referral-credit' => 'Referral reward',
+            'convert-out' => 'Converted out',
+            'convert-in' => 'Converted in',
+            'withdrawal' => 'Withdrawal',
+            'refund' => 'Refund',
+            'adjustment' => 'Adjustment',
+        ],
     ],
 
     'errors' => [

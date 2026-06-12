@@ -72,6 +72,14 @@ return [
         'last_whatsapp_number'   => 'You must keep at least one WhatsApp number.',
     ],
 
+    // Prepaid IDR wallet.
+    'wallet' => [
+        'invalid_amount'      => 'Please enter a valid amount greater than zero.',
+        'insufficient_reward' => 'That’s more than your reward balance. Enter a smaller amount.',
+        'withdraw_not_allowed' => 'Withdrawals need a verified business (KYB) and bank account first.',
+        'payment_unavailable'  => 'The payment provider is unavailable right now. Please try again shortly.',
+    ],
+
     // Omnichannel / inbox.
     'omnichannel' => [
         'conversation_not_found'  => 'Conversation not found.',

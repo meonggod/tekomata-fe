@@ -22,14 +22,21 @@ class InboxApi
     }
 
     /**
+     * Paginated message history. Cursor-based — page size is fixed server-side;
+     * the client only echoes the opaque cursors it received. One of:
+     *   []                      → latest page (most recent 50)
+     *   ['before' => <cursor>]  → 50 messages older than the cursor (scroll up)
+     *   ['after'  => <cursor>]  → 50 messages newer than the cursor (scroll down)
+     *   ['around' => <msg_id>]  → centered window (20 before + target + 20 after)
+     * Returns `{messages: [...], page: {older_cursor, newer_cursor,
+     * has_more_older, has_more_newer, target_id}}` — messages always ascending.
+     *
+     * @param  array<string,string>  $query
      * @return array<string,mixed>
      */
-    public function messages(string $token, string $id, int $limit = 50, int $offset = 0): array
+    public function messages(string $token, string $id, array $query = []): array
     {
-        return $this->client->get('/api/v1/inbox/conversations/'.$id.'/messages', [
-            'limit' => $limit,
-            'offset' => $offset,
-        ], $token)['data'] ?? [];
+        return $this->client->get('/api/v1/inbox/conversations/'.$id.'/messages', $query, $token)['data'] ?? [];
     }
 
     /**

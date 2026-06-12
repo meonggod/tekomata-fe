@@ -72,6 +72,14 @@ return [
         'last_whatsapp_number'   => 'Kamu harus mempertahankan setidaknya satu nomor WhatsApp.',
     ],
 
+    // Dompet IDR prabayar.
+    'wallet' => [
+        'invalid_amount'      => 'Mohon masukkan jumlah yang valid dan lebih dari nol.',
+        'insufficient_reward' => 'Jumlah itu melebihi saldo reward Anda. Masukkan jumlah yang lebih kecil.',
+        'withdraw_not_allowed' => 'Penarikan memerlukan bisnis terverifikasi (KYB) dan rekening bank terlebih dahulu.',
+        'payment_unavailable'  => 'Penyedia pembayaran sedang tidak tersedia. Silakan coba lagi sebentar.',
+    ],
+
     // Omnichannel / inbox.
     'omnichannel' => [
         'conversation_not_found'  => 'Percakapan tidak ditemukan.',

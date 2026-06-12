@@ -21,6 +21,7 @@ return [
         'categories' => 'Kategori',
         'warehouses' => 'Gudang',
         'currencies' => 'Mata Uang',
+        'wallet' => 'Dompet',
         'inbox' => 'Kotak Masuk',
         'team_chat' => 'Chat Tim',
         // Tab tersegmentasi di dalam menu Kotak Masuk gabungan (x-messages-tabs).
@@ -657,6 +658,7 @@ return [
         'reply_placeholder' => 'Ketik balasanmu...',
         'reply_submit' => 'Kirim',
         'reply_success' => 'Balasan terkirim.',
+        'send_failed' => 'Gagal terkirim',
         'whatsapp_window_hint' => 'Jendela pesan WhatsApp 24 jam',
         'instagram_dm_label' => 'Pesan Langsung',
         'instagram_comment_label' => 'Balas Komentar',
@@ -726,6 +728,7 @@ return [
         // Komposer
         'reply_placeholder' => 'Ketik pesan...',
         'reply_submit' => 'Kirim',
+        'send_failed' => 'Gagal terkirim',
 
         // Sukses
         'reply_success' => 'Pesan terkirim.',
@@ -737,6 +740,84 @@ return [
         'error_send' => 'Gagal mengirim pesan.',
         'error_create' => 'Gagal membuat percakapan.',
         'error_add_members' => 'Gagal menambah anggota.',
+    ],
+
+    'wallet' => [
+        'title' => 'Dompet',
+        'subtitle' => 'Isi saldo yang menjalankan asisten Anda, dan kelola reward referral.',
+        'money_prefix' => 'Rp',
+
+        'spendable' => [
+            'label' => 'Saldo terpakai',
+            'hint' => 'Membayar setiap aksi berbayar — balasan asisten, pencarian, langganan.',
+            'low_warning' => 'Saldo terpakai Anda menipis. Isi ulang agar asisten tetap menjawab.',
+            'empty_warning' => 'Saldo terpakai Anda habis. Asisten berhenti menjawab — isi ulang untuk melanjutkan.',
+        ],
+        'reward' => [
+            'label' => 'Saldo reward',
+            'hint' => 'Diperoleh dari referral. Tarik ke bank, atau konversi ke saldo terpakai untuk dipakai di sini.',
+        ],
+
+        'topup' => [
+            'title' => 'Isi ulang',
+            'subtitle' => 'Tambahkan dana ke saldo terpakai melalui penyedia pembayaran kami.',
+            'amount_label' => 'Jumlah (IDR)',
+            'amount_placeholder' => 'mis. 100000',
+            'submit' => 'Lanjut ke pembayaran',
+            'started' => 'Isi ulang dimulai. Saldo Anda diperbarui setelah pembayaran dikonfirmasi.',
+        ],
+
+        'convert' => [
+            'title' => 'Konversi reward → terpakai',
+            'subtitle' => 'Pindahkan dana reward ke saldo terpakai agar bisa membayar tekomata. Dana yang dikonversi tidak bisa lagi ditarik.',
+            'amount_label' => 'Jumlah konversi (IDR)',
+            'amount_placeholder' => 'mis. 50000',
+            'submit' => 'Konversi',
+            'done' => 'Dana reward dikonversi ke saldo terpakai.',
+        ],
+
+        'withdraw' => [
+            'title' => 'Tarik reward ke bank',
+            'subtitle' => 'Cairkan dana reward ke rekening bank terverifikasi. Dana terpakai (isi ulang) tidak bisa ditarik.',
+            'gated' => 'Penarikan memerlukan profil bisnis terverifikasi (KYB) dan rekening bank.',
+            'gated_link' => 'Selesaikan verifikasi di Pengaturan',
+            'amount_label' => 'Jumlah (IDR)',
+            'amount_placeholder' => 'mis. 50000',
+            'bank_code_label' => 'Bank',
+            'bank_code_placeholder' => 'mis. BCA',
+            'account_number_label' => 'Nomor rekening',
+            'account_holder_label' => 'Nama pemilik rekening',
+            'submit' => 'Ajukan penarikan',
+            'requested' => 'Penarikan diajukan. Dana cair setelah pencairan dikonfirmasi.',
+        ],
+
+        'history' => [
+            'title' => 'Riwayat transaksi',
+            'empty' => 'Belum ada transaksi.',
+            'col_date' => 'Tanggal',
+            'col_type' => 'Jenis',
+            'col_bucket' => 'Kantong',
+            'col_amount' => 'Jumlah',
+            'col_balance' => 'Saldo sesudah',
+            'prev' => 'Lebih baru',
+            'next' => 'Lebih lama',
+        ],
+
+        'bucket' => [
+            'spendable' => 'Terpakai',
+            'reward' => 'Reward',
+        ],
+
+        'type' => [
+            'topup' => 'Isi ulang',
+            'debit' => 'Tagihan',
+            'referral-credit' => 'Reward referral',
+            'convert-out' => 'Konversi keluar',
+            'convert-in' => 'Konversi masuk',
+            'withdrawal' => 'Penarikan',
+            'refund' => 'Pengembalian',
+            'adjustment' => 'Penyesuaian',
+        ],
     ],
 
     'errors' => [

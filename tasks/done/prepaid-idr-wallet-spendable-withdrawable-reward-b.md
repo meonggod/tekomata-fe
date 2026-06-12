@@ -101,7 +101,23 @@ replayed payout webhook does not double-pay. Spendable/top-up funds cannot be wi
 rate + estimated AI cost), the assistant declines and tells the owner to top up.
 - [ ] Concurrent debits cannot double-spend and cannot drive spendable negative beyond a single
 in-flight settlement.
-- [ ] The owner can view both balances and a full, bucket-tagged history in the panel.
+- [x] The owner can view both balances and a full, bucket-tagged history in the panel.
+
+> **Frontend (this repo) — done.** Wallet page (`## Frontend` unit) implemented:
+> - `WalletApi` service (`app/Services/Tekomata/WalletApi.php`) — thin client over the four
+>   tenant-scoped wallet endpoints (`GET wallet`, `POST topup|convert|withdraw`); company id pulled
+>   from the active-company JWT claim in `TokenStore`.
+> - `WalletController` (`show`/`topup`/`convert`/`withdraw`) — validates amounts as positive IDR
+>   decimal strings; maps wallet error codes (`wallet.invalid_amount`/`insufficient_reward`/
+>   `withdraw_not_allowed`/`payment_unavailable`) via the `errors` catalog; 5xx → shared error modal.
+> - Routes under `/app/wallet*` (`ensure.onboarded`), sidebar nav entry, `wallet/index.blade.php`.
+> - Page shows **both balances**, a low/empty **spendable** warning, **top-up** (redirects to the
+>   provider `payment_url`), **reward→spendable convert**, **withdraw-to-bank** (gated on verified
+>   KYB — surfaced from settings, with a link to complete verification), and a paginated,
+>   **bucket-tagged** transaction table. id+en strings added; Pint clean; assets rebuilt.
+>
+> Backend-owned criteria (ledger integrity, webhook idempotency, spendable-only debit + funds gate,
+> concurrent-debit safety, convert/withdraw money movement) left unticked — this repo can't prove them.
 
 ---
 

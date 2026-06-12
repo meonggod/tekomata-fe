@@ -79,6 +79,30 @@ class TokenStore
     }
 
     /**
+     * The signed-in user's id, read from the access token's JWT `sub` claim.
+     * The API exposes no /auth/me endpoint and login never stored the identity,
+     * but the id is always carried in the token itself. Returns '' if absent.
+     */
+    public function userId(): string
+    {
+        $token = $this->accessToken();
+        if ($token === null) {
+            return '';
+        }
+
+        $parts = explode('.', $token);
+        if (count($parts) < 2) {
+            return '';
+        }
+
+        $payload = $parts[1];
+        $payload .= str_repeat('=', (4 - strlen($payload) % 4) % 4);
+        $claims = json_decode(base64_decode(strtr($payload, '-_', '+/')) ?: '', true);
+
+        return is_array($claims) ? (string) ($claims['sub'] ?? '') : '';
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     public function user(): ?array

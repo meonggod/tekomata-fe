@@ -6,6 +6,7 @@ use App\Services\Tekomata\Exceptions\TekomataApiException;
 use App\Services\Tekomata\InboxApi;
 use App\Services\Tekomata\TokenStore;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
@@ -38,7 +39,7 @@ class InboxController extends Controller
             // Degrade gracefully — empty list
         }
 
-        $conversations = $data['conversations'] ?? [];
+        $conversations = $this->externalOnly($data['conversations'] ?? []);
         $total = $data['total'] ?? count($conversations);
 
         return view('inbox.index', [
@@ -49,7 +50,23 @@ class InboxController extends Controller
         ]);
     }
 
-    public function show(Request $request, string $id): View
+    /**
+     * The customer inbox shows EXTERNAL conversations only. Internal team chats
+     * (`kind: internal`) belong to the separate /app/team page — if they leak in
+     * here they render as all-"internal note" threads with no usable channel.
+     *
+     * @param  array<int,array<string,mixed>>  $conversations
+     * @return array<int,array<string,mixed>>
+     */
+    private function externalOnly(array $conversations): array
+    {
+        return array_values(array_filter(
+            $conversations,
+            fn ($c) => ($c['kind'] ?? null) !== 'internal',
+        ));
+    }
+
+    public function show(Request $request, string $id): View|RedirectResponse
     {
         $token = $this->tokens->accessToken();
 
@@ -68,18 +85,29 @@ class InboxController extends Controller
             // Degrade gracefully
         }
 
-        $conversations = $listData['conversations'] ?? [];
+        $conversations = $this->externalOnly($listData['conversations'] ?? []);
         $total = $listData['total'] ?? count($conversations);
 
-        // Fetch thread
+        // Optional focus: open centered on a specific message (from a search hit
+        // or reply link) via ?message=<id> → fetch the `around` window.
+        $messageQuery = $this->messageQuery($request);
+
+        // Fetch thread (latest page, or the centered window when focusing).
         $conversation = [];
         $threadMessages = [];
+        $page = null;
         try {
             $conversation = $this->inbox->conversation($token, $id);
-            $msgData = $this->inbox->messages($token, $id);
+            $msgData = $this->inbox->messages($token, $id, $messageQuery);
             $threadMessages = $msgData['messages'] ?? [];
+            $page = $msgData['page'] ?? null;
         } catch (TekomataApiException) {
             // Thread will render empty
+        }
+
+        // Internal team chats aren't customer conversations — send them to /team.
+        if (($conversation['kind'] ?? null) === 'internal') {
+            return redirect()->route('team.index');
         }
 
         return view('inbox.index', [
@@ -89,21 +117,51 @@ class InboxController extends Controller
             'activeId' => $id,
             'conversation' => $conversation,
             'threadMessages' => $threadMessages,
+            'threadPage' => $page,
         ]);
+    }
+
+    /**
+     * Translate the request's message-history params into the API query: a
+     * `?message=<id>` focus becomes an `around` window; otherwise the before/after
+     * scroll cursors pass through. Empty when loading the default latest page.
+     *
+     * @return array<string,string>
+     */
+    private function messageQuery(Request $request): array
+    {
+        if ($request->filled('message')) {
+            return ['around' => (string) $request->query('message')];
+        }
+
+        return array_filter([
+            'around' => $request->query('around'),
+            'before' => $request->query('before'),
+            'after' => $request->query('after'),
+        ], fn ($v) => $v !== null && $v !== '');
     }
 
     public function threadJson(Request $request, string $id): JsonResponse
     {
         $token = $this->tokens->accessToken();
+        $messageQuery = $this->messageQuery($request);
+        $isPaging = isset($messageQuery['before']) || isset($messageQuery['after']);
 
         try {
-            $conversation = $this->inbox->conversation($token, $id);
-            $msgData = $this->inbox->messages($token, $id);
+            $msgData = $this->inbox->messages($token, $id, $messageQuery);
 
-            return response()->json([
-                'conversation' => $conversation,
+            $payload = [
                 'messages' => $msgData['messages'] ?? [],
-            ]);
+                'page' => $msgData['page'] ?? null,
+            ];
+
+            // A plain scroll (before/after) only needs more rows — skip the extra
+            // conversation fetch; the initial/around load carries it for the header.
+            if (! $isPaging) {
+                $payload['conversation'] = $this->inbox->conversation($token, $id);
+            }
+
+            return response()->json($payload);
         } catch (TekomataApiException $e) {
             return $this->jsonError($e);
         }

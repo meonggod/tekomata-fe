@@ -16,6 +16,7 @@ use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ResetPasswordController;
 use App\Http\Controllers\TeamChatController;
 use App\Http\Controllers\VerifyController;
+use App\Http\Controllers\WalletController;
 use App\Http\Controllers\WarehouseController;
 use App\Services\Tekomata\AuthApi;
 use App\Services\Tekomata\Exceptions\TekomataApiException;
@@ -166,6 +167,14 @@ Route::prefix('app')->middleware('auth.api')->group(function () {
         Route::post('/catalog/import/{job}/apply', [CatalogImportController::class, 'apply'])->name('catalog.import.apply');
         Route::post('/catalog/import/{job}/retry', [CatalogImportController::class, 'retry'])->name('catalog.import.retry');
         Route::delete('/catalog/import/{job}', [CatalogImportController::class, 'discard'])->name('catalog.import.discard');
+
+        // Prepaid IDR wallet: two balances (spendable + reward), top-up via the
+        // payment provider, reward→spendable convert, withdraw-to-bank (KYB gated),
+        // and the bucket-tagged transaction history. Tenant-scoped via the JWT.
+        Route::get('/wallet', [WalletController::class, 'show'])->name('wallet.index');
+        Route::post('/wallet/topup', [WalletController::class, 'topup'])->name('wallet.topup');
+        Route::post('/wallet/convert', [WalletController::class, 'convert'])->name('wallet.convert');
+        Route::post('/wallet/withdraw', [WalletController::class, 'withdraw'])->name('wallet.withdraw');
 
         Route::get('/settings/currencies', [CurrencyController::class, 'index'])->name('currencies.index');
         Route::post('/settings/currencies', [CurrencyController::class, 'enable'])->name('currencies.enable');

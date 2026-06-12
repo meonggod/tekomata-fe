@@ -49,51 +49,13 @@
         </div>
     </div>
 
-    {{-- Message list --}}
-    <div id="team-messages" class="flex-1 overflow-y-auto px-4 py-4 sm:px-6" data-team-messages>
-        @forelse ($msgs as $msg)
-            @php
-                $body = $msg['body'] ?? '';
-                $authorId = $msg['author_user_id'] ?? '';
-                $authorName = $msg['author_name'] ?? '';
-                $isMine = $authorId === $currentUserId;
-                $msgTime = '';
-                if (!empty($msg['created_at'])) {
-                    try {
-                        $msgTime = \Carbon\Carbon::parse($msg['created_at'])->format('M j, H:i');
-                    } catch (\Throwable) {
-                        $msgTime = $msg['created_at'];
-                    }
-                }
-            @endphp
-
-            @if ($isMine)
-                {{-- My message — right aligned, indigo --}}
-                <div class="mb-3 flex justify-end">
-                    <div class="max-w-xs rounded-lg bg-indigo-600 px-4 py-2.5 sm:max-w-md">
-                        <div class="flex items-center gap-2 text-xs text-indigo-200">
-                            <span class="font-medium">{{ $authorName }}</span>
-                            <span>{{ $msgTime }}</span>
-                        </div>
-                        <p class="mt-1 text-sm text-white whitespace-pre-wrap">{{ $body }}</p>
-                    </div>
-                </div>
-            @else
-                {{-- Other's message — left aligned, gray --}}
-                <div class="mb-3 flex justify-start">
-                    <div class="max-w-xs rounded-lg bg-gray-100 px-4 py-2.5 sm:max-w-md">
-                        <div class="flex items-center gap-2 text-xs text-gray-500">
-                            <span class="font-medium">{{ $authorName }}</span>
-                            <span>{{ $msgTime }}</span>
-                        </div>
-                        <p class="mt-1 text-sm text-gray-800 whitespace-pre-wrap">{{ $body }}</p>
-                    </div>
-                </div>
-            @endif
-        @empty
-            <p class="py-8 text-center text-sm text-gray-400">{{ __('messages.team.empty_state') }}</p>
-        @endforelse
-    </div>
+    {{-- Message list. Rendered by JS from the embedded payload below — NOT as
+         server-side bubbles. Alignment ("my" messages on the right) depends on the
+         viewer's participant id, which is only known client-side, so rendering on
+         the server would paint everything left for a blink before JS re-aligns.
+         JS reads the JSON and paints the thread correctly on first frame. --}}
+    <div id="team-messages" class="flex-1 overflow-y-auto px-4 py-4 sm:px-6" data-team-messages></div>
+    <script type="application/json" data-team-thread-json>{!! json_encode(array_values($msgs), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
 
     {{-- Reply composer --}}
     <div class="shrink-0 border-t border-gray-200 bg-white px-4 py-3 sm:px-6">

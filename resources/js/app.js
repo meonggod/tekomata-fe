@@ -426,7 +426,13 @@ function initInbox() {
 
     // --- Build a message DOM node ---
     function createMessageEl(msg) {
-        const direction = msg.direction || 'inbound';
+        // API direction enum is `in | out | internal`; normalise the external
+        // pair to the inbound/outbound this renderer aligns against. `__outbound`
+        // is set on a reply WE just sent, so it always renders on the sent side.
+        let direction = msg.direction || 'inbound';
+        if (direction === 'in') direction = 'inbound';
+        else if (direction === 'out') direction = 'outbound';
+        if (msg.__outbound) direction = 'outbound';
         const body = msg.body || '';
         const author = msg.author_name || (direction === 'inbound' ? (i18n.customer || 'Customer') : (i18n.agent || 'Agent'));
         let msgTime = '';
@@ -441,6 +447,7 @@ function initInbox() {
 
         const wrap = document.createElement('div');
         wrap.className = 'mb-3';
+        if (msg.id) wrap.dataset.messageId = msg.id;
 
         if (direction === 'internal') {
             wrap.className += ' mx-auto max-w-lg';
@@ -480,14 +487,16 @@ function initInbox() {
         } else {
             wrap.className += ' flex justify-end';
             const bubble = document.createElement('div');
-            bubble.className = 'max-w-xs rounded-lg bg-indigo-600 px-4 py-2.5 sm:max-w-md';
+            bubble.className = 'max-w-xs rounded-lg px-4 py-2.5 sm:max-w-md '
+                + (msg.__failed ? 'bg-red-500' : 'bg-indigo-600')
+                + (msg.__pending ? ' opacity-70' : '');
             const header = document.createElement('div');
-            header.className = 'flex items-center gap-2 text-xs text-indigo-200';
+            header.className = 'flex items-center gap-2 text-xs ' + (msg.__failed ? 'text-red-100' : 'text-indigo-200');
             const nameEl = document.createElement('span');
             nameEl.className = 'font-medium';
             nameEl.textContent = author;
             const timeEl = document.createElement('span');
-            timeEl.textContent = msgTime;
+            timeEl.textContent = msg.__failed ? (i18n.send_failed || 'Failed to send') : msgTime;
             header.append(nameEl, timeEl);
             const bodyEl = document.createElement('p');
             bodyEl.className = 'mt-1 text-sm text-white whitespace-pre-wrap';
@@ -500,7 +509,8 @@ function initInbox() {
     }
 
     // --- Load thread ---
-    async function loadThread(convId) {
+    // opts.around — open centered on (and highlight) a specific message id.
+    async function loadThread(convId, opts) {
         activeConvId = convId;
 
         // Highlight active conversation in list
@@ -513,10 +523,11 @@ function initInbox() {
         });
 
         try {
-            const data = await apiFetch(url(tplThread, convId));
+            const around = opts && opts.around;
+            const data = await apiFetch(url(tplThread, convId) + (around ? '?around=' + encodeURIComponent(around) : ''));
             if (!data) return;
 
-            renderThread(data.conversation, data.messages || []);
+            renderThread(data.conversation, data.messages || [], data.page || null);
             showThread();
 
             // Update URL without reload
@@ -529,8 +540,103 @@ function initInbox() {
         }
     }
 
+    // Cursor pagination state for the open thread (from the API's `page` object).
+    // Reset whenever a thread is (re)loaded. Drives scroll-up (older) history and,
+    // after an `around` focus window, scroll-down (newer) until live takes over.
+    let threadPage = emptyPage();
+    let loadingOlder = false;
+    let loadingNewer = false;
+    let inboxTempCounter = 0; // ids for optimistic (not-yet-confirmed) replies/notes
+
+    function emptyPage() {
+        return { older_cursor: null, newer_cursor: null, has_more_older: false, has_more_newer: false, target_id: null };
+    }
+
+    function applyThreadPage(page) {
+        threadPage = page ? {
+            older_cursor: page.older_cursor ?? null,
+            newer_cursor: page.newer_cursor ?? null,
+            has_more_older: !!page.has_more_older,
+            has_more_newer: !!page.has_more_newer,
+            target_id: page.target_id ?? null,
+        } : emptyPage();
+    }
+
+    // Attach the scroll-driven history loader to a messages area (idempotent).
+    function attachThreadScroll(area) {
+        if (!area || area.dataset.scrollBound) return;
+        area.dataset.scrollBound = '1';
+        area.addEventListener('scroll', () => {
+            if (area.scrollTop <= 80) loadOlder();
+            if (threadPage.has_more_newer && (area.scrollHeight - area.scrollTop - area.clientHeight) <= 80) loadNewer();
+        });
+    }
+
+    // Scroll to a specific message and flash it (jump-to-message). Falls back to
+    // the bottom if the target isn't in the current DOM.
+    function focusTargetMessage(area, targetId) {
+        if (!area || !targetId) return;
+        const sel = '[data-message-id="' + (window.CSS && CSS.escape ? CSS.escape(targetId) : targetId) + '"]';
+        const el = area.querySelector(sel);
+        if (!el) { area.scrollTop = area.scrollHeight; return; }
+        el.scrollIntoView({ block: 'center' });
+        el.classList.add('msg-flash');
+        setTimeout(() => el.classList.remove('msg-flash'), 2000);
+    }
+
+    // Fetch + PREPEND the next older page, preserving the agent's scroll position.
+    async function loadOlder() {
+        if (loadingOlder || !threadPage.has_more_older || !threadPage.older_cursor || !activeConvId) return;
+        loadingOlder = true;
+        try {
+            const data = await apiFetch(url(tplThread, activeConvId) + '?before=' + encodeURIComponent(threadPage.older_cursor));
+            if (!data) return;
+            const area = threadPanel.querySelector('[data-inbox-messages]');
+            if (!area) return;
+            const prevHeight = area.scrollHeight;
+            const prevTop = area.scrollTop;
+            const frag = document.createDocumentFragment();
+            (data.messages || []).forEach((m) => {
+                if (m.id && area.querySelector('[data-message-id="' + m.id + '"]')) return;
+                frag.append(createMessageEl(m));
+            });
+            area.insertBefore(frag, area.firstChild);
+            area.scrollTop = prevTop + (area.scrollHeight - prevHeight); // keep view steady
+            threadPage.older_cursor = data.page ? data.page.older_cursor : null;
+            threadPage.has_more_older = !!(data.page && data.page.has_more_older);
+        } catch (_) {
+            // silent — a failed history page just leaves the current view intact
+        } finally {
+            loadingOlder = false;
+        }
+    }
+
+    // Fetch + APPEND the next newer page (only relevant after an `around` window).
+    async function loadNewer() {
+        if (loadingNewer || !threadPage.has_more_newer || !threadPage.newer_cursor || !activeConvId) return;
+        loadingNewer = true;
+        try {
+            const data = await apiFetch(url(tplThread, activeConvId) + '?after=' + encodeURIComponent(threadPage.newer_cursor));
+            if (!data) return;
+            const area = threadPanel.querySelector('[data-inbox-messages]');
+            if (!area) return;
+            const frag = document.createDocumentFragment();
+            (data.messages || []).forEach((m) => {
+                if (m.id && area.querySelector('[data-message-id="' + m.id + '"]')) return;
+                frag.append(createMessageEl(m));
+            });
+            area.append(frag);
+            threadPage.newer_cursor = data.page ? data.page.newer_cursor : null;
+            threadPage.has_more_newer = !!(data.page && data.page.has_more_newer);
+        } catch (_) {
+            // silent
+        } finally {
+            loadingNewer = false;
+        }
+    }
+
     // --- Render thread into the panel ---
-    function renderThread(conv, messages) {
+    function renderThread(conv, messages, page) {
         const convId = conv.id || '';
         const channel = conv.channel || 'unknown';
         const status = conv.status || 'open';
@@ -674,8 +780,14 @@ function initInbox() {
 
         messages.forEach((msg) => messagesArea.append(createMessageEl(msg)));
 
-        // Scroll to bottom
-        setTimeout(() => { messagesArea.scrollTop = messagesArea.scrollHeight; }, 0);
+        applyThreadPage(page);
+        attachThreadScroll(messagesArea);
+
+        // Focus a referenced message (around mode) or pin to the latest.
+        setTimeout(() => {
+            if (threadPage.target_id) focusTargetMessage(messagesArea, threadPage.target_id);
+            else messagesArea.scrollTop = messagesArea.scrollHeight;
+        }, 0);
 
         // Composer
         const composer = document.createElement('div');
@@ -743,8 +855,23 @@ function initInbox() {
         }
     });
 
+    // Append a message, skipping it if its id is already in the thread (so a
+    // locally-echoed send isn't duplicated when the SSE stream re-delivers it).
+    // Scrolls to the newest only when `force` (our own send) or the agent is
+    // already near the bottom — so a live message never yanks them away from
+    // older history they've scrolled up to read.
+    function appendInboxMessage(messagesArea, msg, force) {
+        if (!messagesArea || !msg) return;
+        if (msg.id && messagesArea.querySelector('[data-message-id="' + msg.id + '"]')) return;
+        const nearBottom = (messagesArea.scrollHeight - messagesArea.scrollTop - messagesArea.clientHeight) < 120;
+        messagesArea.append(createMessageEl(msg));
+        if (force || nearBottom) messagesArea.scrollTop = messagesArea.scrollHeight;
+    }
+
     // --- Reply form (delegated) ---
-    threadPanel.addEventListener('submit', async (e) => {
+    // OPTIMISTIC send: clear the composer and show the reply on the right at once,
+    // POST in the background, then reconcile (or mark failed and restore the text).
+    threadPanel.addEventListener('submit', (e) => {
         const form = e.target.closest('[data-inbox-reply-form]');
         if (!form) return;
         e.preventDefault();
@@ -753,43 +880,64 @@ function initInbox() {
         const body = bodyEl?.value?.trim();
         if (!body || !activeConvId) return;
 
-        const submitBtn = form.querySelector('[data-inbox-reply-submit]');
-        if (submitBtn) submitBtn.disabled = true;
-
         const isNote = threadPanel.querySelector('[data-inbox-note-toggle]')?.checked;
+        bodyEl.value = '';
+        bodyEl.focus();
+        sendInboxOptimistic(activeConvId, body, isNote, bodyEl);
+    });
 
-        try {
-            if (isNote) {
-                const data = await apiFetch(url(tplNotes, activeConvId), {
-                    method: 'POST',
-                    body: JSON.stringify({ body }),
-                });
-                if (!data) return;
-                const messagesArea = threadPanel.querySelector('[data-inbox-messages]');
-                if (messagesArea && data.message) {
-                    messagesArea.append(createMessageEl(data.message));
-                    messagesArea.scrollTop = messagesArea.scrollHeight;
-                }
-                showToast(i18n.note_success || 'Note added.', false);
-            } else {
-                const data = await apiFetch(url(tplReply, activeConvId), {
-                    method: 'POST',
-                    body: JSON.stringify({ body }),
-                });
-                if (!data) return;
-                const messagesArea = threadPanel.querySelector('[data-inbox-messages]');
-                if (messagesArea && data.message) {
-                    messagesArea.append(createMessageEl(data.message));
-                    messagesArea.scrollTop = messagesArea.scrollHeight;
-                }
-                showToast(i18n.reply_success || 'Reply sent.', false);
-            }
-            bodyEl.value = '';
-        } catch (err) {
-            showToast(isNote ? (i18n.error_note || err.message) : (i18n.error_reply || err.message), true);
-        } finally {
-            if (submitBtn) submitBtn.disabled = false;
+    async function sendInboxOptimistic(convId, body, isNote, bodyEl) {
+        const area = threadPanel.querySelector('[data-inbox-messages]');
+        const tempId = 'tmp-' + (++inboxTempCounter);
+        if (area) {
+            appendInboxMessage(area, {
+                id: tempId, body, __pending: true, created_at: Date.now(),
+                direction: isNote ? 'internal' : 'out',
+                __outbound: ! isNote,
+            }, true);
         }
+        try {
+            const endpoint = isNote ? tplNotes : tplReply;
+            const data = await apiFetch(url(endpoint, convId), { method: 'POST', body: JSON.stringify({ body }) });
+            if (!data || !data.message) { failInboxMessage(tempId, body, isNote); return; }
+            if (! isNote) data.message.__outbound = true;
+            reconcileInboxMessage(tempId, data.message);
+        } catch (err) {
+            failInboxMessage(tempId, body, isNote);
+            if (bodyEl && !bodyEl.value) bodyEl.value = body; // let them resend
+            showToast(isNote ? (i18n.error_note || err.message) : (i18n.error_reply || err.message), true);
+        }
+    }
+
+    // Replace the optimistic placeholder with the server's real message (real id),
+    // unless a live SSE echo already delivered it (then just drop the placeholder).
+    function reconcileInboxMessage(tempId, realMsg) {
+        const area = threadPanel.querySelector('[data-inbox-messages]');
+        if (!area) return;
+        const tempEl = area.querySelector('[data-message-id="' + tempId + '"]');
+        const realEl = realMsg.id ? area.querySelector('[data-message-id="' + realMsg.id + '"]') : null;
+        if (realEl && realEl !== tempEl) {
+            if (tempEl) tempEl.remove();
+            return;
+        }
+        const newEl = createMessageEl(realMsg);
+        if (tempEl) tempEl.replaceWith(newEl);
+        else area.append(newEl);
+    }
+
+    function failInboxMessage(tempId, body, isNote) {
+        const area = threadPanel.querySelector('[data-inbox-messages]');
+        const el = area && area.querySelector('[data-message-id="' + tempId + '"]');
+        if (el) el.replaceWith(createMessageEl({ id: tempId, body: body || '', direction: isNote ? 'internal' : 'out', __outbound: ! isNote, __failed: true }));
+    }
+
+    // --- Enter to send; Shift+Enter inserts a newline (delegated) ---
+    threadPanel.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+        const bodyEl = e.target.closest('[data-inbox-reply-body]');
+        if (!bodyEl) return;
+        e.preventDefault();
+        bodyEl.closest('[data-inbox-reply-form]')?.requestSubmit();
     });
 
     // --- Assign / Take / Unassign (delegated) ---
@@ -993,11 +1141,7 @@ function initInbox() {
         if (type === 'message') {
             // Append to active thread
             if (convId === activeConvId) {
-                const messagesArea = threadPanel.querySelector('[data-inbox-messages]');
-                if (messagesArea) {
-                    messagesArea.append(createMessageEl(data));
-                    messagesArea.scrollTop = messagesArea.scrollHeight;
-                }
+                appendInboxMessage(threadPanel.querySelector('[data-inbox-messages]'), data);
                 // Agent is viewing — mark as read
                 postRead(convId);
             }
@@ -1143,6 +1287,22 @@ function initInbox() {
 
     // --- Start SSE ---
     connectSSE();
+
+    // Wire up an existing (server-rendered) thread: adopt it as active, read the
+    // embedded pagination cursors, enable scroll-up history, and either focus the
+    // referenced message (?message=…) or pin to the latest.
+    const initialThread = threadPanel.querySelector('#inbox-thread[data-conversation-id]');
+    const initialMessages = threadPanel.querySelector('[data-inbox-messages]');
+    if (initialThread) activeConvId = initialThread.dataset.conversationId;
+    if (initialMessages) {
+        let page = null;
+        const pageEl = threadPanel.querySelector('[data-inbox-page-json]');
+        if (pageEl) { try { page = JSON.parse(pageEl.textContent); } catch (_) { page = null; } }
+        applyThreadPage(page);
+        attachThreadScroll(initialMessages);
+        if (threadPage.target_id) focusTargetMessage(initialMessages, threadPage.target_id);
+        else initialMessages.scrollTop = initialMessages.scrollHeight;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', initInbox);
@@ -1238,11 +1398,90 @@ function initTeamChat() {
     }
 
     // --- Build a message DOM node ---
+    // Team messages only carry `participant_id` (no author_user_id/author_name),
+    // and there is no /auth/me endpoint — so the FE can't know up-front which
+    // participant is "me". A `participant_id` is unique per (user, conversation),
+    // so we collect the ones the API returns on messages WE send: any message
+    // whose participant_id is in the set is ours. Persisted in localStorage and
+    // keyed by the current user id (from the JWT), so it survives reloads, only
+    // needs one send per conversation ever, and one account's ids can't leak into
+    // another's (localStorage isn't cleared on logout). Until we've sent in a
+    // thread, its messages default to the received side (left).
+    const MY_PIDS_KEY = 'tekomata.team.my_participants:' + (currentUserId || 'anon');
+    let myPids = new Set();
+    try { myPids = new Set(JSON.parse(localStorage.getItem(MY_PIDS_KEY)) || []); } catch (_) { myPids = new Set(); }
+
+    function rememberMyPid(pid) {
+        if (!pid || myPids.has(pid)) return false;
+        myPids.add(pid);
+        try { localStorage.setItem(MY_PIDS_KEY, JSON.stringify([...myPids])); } catch (_) {}
+        return true; // newly learned
+    }
+
+    function isMineMsg(msg) {
+        // `__mine` is set on messages WE just sent (authored by us by definition);
+        // everything else is matched by the participant ids we've learned.
+        return !!(msg && (msg.__mine || (msg.participant_id && myPids.has(msg.participant_id))));
+    }
+
+    // The messages currently shown in the thread, kept in memory so we can add a
+    // new one (deduped by id) or re-render in place when we first learn our own
+    // participant id — without a refetch and without ever double-appending.
+    let teamThreadMessages = [];
+    let tempCounter = 0; // ids for optimistic (not-yet-confirmed) messages
+
+    // While a send is in flight, the server's SSE echo of OUR message (which has
+    // no participant_id) can beat the POST response and paint it on the left for a
+    // blink. So we buffer SSE messages during a send and flush them right after,
+    // by which point the message is already placed correctly from the response.
+    let pendingSends = 0;
+    const sseBuffer = [];
+
+    function flushSseBuffer() {
+        const queued = sseBuffer.splice(0);
+        queued.forEach((m) => addTeamMessage(m));
+    }
+
+    function teamEmptyEl() {
+        const p = document.createElement('p');
+        p.className = 'py-8 text-center text-sm text-gray-400';
+        p.textContent = i18n.empty_state || '';
+        return p;
+    }
+
+    function renderTeamMessages() {
+        const area = threadPanel.querySelector('[data-team-messages]');
+        if (!area) return;
+        area.innerHTML = '';
+        if (teamThreadMessages.length === 0) {
+            area.append(teamEmptyEl());
+            return;
+        }
+        teamThreadMessages.forEach((m) => area.append(createTeamMessageEl(m)));
+        area.scrollTop = area.scrollHeight;
+    }
+
+    // Add (or update) a message in the thread, then repaint. The SAME message can
+    // arrive twice with different fields: the SSE echo carries no `participant_id`,
+    // while the POST response we send does (plus `__mine`). So we MERGE by id — the
+    // richer copy's fields win — instead of keeping whichever landed first. This is
+    // what fixes a sent message rendering left when the SSE echo beats the response.
+    function addTeamMessage(msg) {
+        const area = threadPanel.querySelector('[data-team-messages]');
+        if (!area || !msg) return;
+        const idx = msg.id ? teamThreadMessages.findIndex((m) => m.id === msg.id) : -1;
+        if (idx === -1) {
+            teamThreadMessages.push(msg);
+        } else {
+            teamThreadMessages[idx] = Object.assign({}, teamThreadMessages[idx], msg);
+        }
+        renderTeamMessages();
+    }
+
     function createTeamMessageEl(msg) {
         const body = msg.body || '';
-        const authorId = msg.author_user_id || '';
         const authorName = msg.author_name || '';
-        const isMine = authorId === currentUserId;
+        const isMine = isMineMsg(msg);
         let msgTime = '';
         if (msg.created_at) {
             try {
@@ -1255,18 +1494,21 @@ function initTeamChat() {
 
         const wrap = document.createElement('div');
         wrap.className = 'mb-3';
+        if (msg.id) wrap.dataset.messageId = msg.id;
 
         if (isMine) {
             wrap.className += ' flex justify-end';
             const bubble = document.createElement('div');
-            bubble.className = 'max-w-xs rounded-lg bg-indigo-600 px-4 py-2.5 sm:max-w-md';
+            bubble.className = 'max-w-xs rounded-lg px-4 py-2.5 sm:max-w-md '
+                + (msg.__failed ? 'bg-red-500' : 'bg-indigo-600')
+                + (msg.__pending ? ' opacity-70' : '');
             const header = document.createElement('div');
-            header.className = 'flex items-center gap-2 text-xs text-indigo-200';
+            header.className = 'flex items-center gap-2 text-xs ' + (msg.__failed ? 'text-red-100' : 'text-indigo-200');
             const nameEl = document.createElement('span');
             nameEl.className = 'font-medium';
             nameEl.textContent = authorName;
             const timeEl = document.createElement('span');
-            timeEl.textContent = msgTime;
+            timeEl.textContent = msg.__failed ? (i18n.send_failed || 'Failed to send') : msgTime;
             header.append(nameEl, timeEl);
             const bodyEl = document.createElement('p');
             bodyEl.className = 'mt-1 text-sm text-white whitespace-pre-wrap';
@@ -1403,7 +1645,12 @@ function initTeamChat() {
         messagesArea.className = 'flex-1 overflow-y-auto px-4 py-4 sm:px-6';
         messagesArea.setAttribute('data-team-messages', '');
 
-        messages.forEach((msg) => messagesArea.append(createTeamMessageEl(msg)));
+        teamThreadMessages = (messages || []).slice();
+        if (teamThreadMessages.length === 0) {
+            messagesArea.append(teamEmptyEl());
+        } else {
+            teamThreadMessages.forEach((msg) => messagesArea.append(createTeamMessageEl(msg)));
+        }
         setTimeout(() => { messagesArea.scrollTop = messagesArea.scrollHeight; }, 0);
 
         // Composer
@@ -1451,8 +1698,11 @@ function initTeamChat() {
         }
     });
 
-    // --- Reply form (delegated) ---
-    threadPanel.addEventListener('submit', async (e) => {
+    // --- Reply form (delegated) — OPTIMISTIC send ---
+    // Clear the input and show the message on the right immediately, then POST in
+    // the background and reconcile. No waiting on the round-trip; on the rare
+    // failure the bubble is marked failed (and the text is restored to retry).
+    threadPanel.addEventListener('submit', (e) => {
         const form = e.target.closest('[data-team-reply-form]');
         if (!form) return;
         e.preventDefault();
@@ -1461,27 +1711,70 @@ function initTeamChat() {
         const body = bodyEl?.value?.trim();
         if (!body || !activeConvId) return;
 
-        const submitBtn = form.querySelector('[data-team-reply-submit]');
-        if (submitBtn) submitBtn.disabled = true;
+        bodyEl.value = '';        // clear instantly
+        bodyEl.focus();
+        sendTeamOptimistic(activeConvId, body, bodyEl);
+    });
 
+    async function sendTeamOptimistic(convId, body, bodyEl) {
+        const tempId = 'tmp-' + (++tempCounter);
+        addTeamMessage({ id: tempId, conversation_id: convId, body, __mine: true, __pending: true, created_at: Date.now() });
+
+        pendingSends++; // buffer SSE echoes until our message settles (no left flash)
         try {
-            const data = await apiFetch(url(tplSend, activeConvId), {
+            const data = await apiFetch(url(tplSend, convId), {
                 method: 'POST',
                 body: JSON.stringify({ body }),
             });
-            if (!data) return;
-            const messagesArea = threadPanel.querySelector('[data-team-messages]');
-            if (messagesArea && data.message) {
-                messagesArea.append(createTeamMessageEl(data.message));
-                messagesArea.scrollTop = messagesArea.scrollHeight;
-            }
-            bodyEl.value = '';
-            showToast(i18n.reply_success || 'Message sent.', false);
+            if (!data || !data.message) { failTeamMessage(tempId); return; }
+            data.message.__mine = true;
+            rememberMyPid(data.message.participant_id);
+            reconcileTeamMessage(tempId, data.message);
         } catch (err) {
+            failTeamMessage(tempId);
+            // Put the text back so the agent can resend without retyping.
+            if (bodyEl && !bodyEl.value) bodyEl.value = body;
             showToast(i18n.error_send || err.message, true);
         } finally {
-            if (submitBtn) submitBtn.disabled = false;
+            pendingSends--;
+            if (pendingSends === 0) flushSseBuffer();
         }
+    }
+
+    // Swap the optimistic placeholder for the server's real message (carrying the
+    // real id + participant_id), so later SSE echoes dedupe against it.
+    function reconcileTeamMessage(tempId, realMsg) {
+        const tIdx = teamThreadMessages.findIndex((m) => m.id === tempId);
+        const rIdx = realMsg.id ? teamThreadMessages.findIndex((m) => m.id === realMsg.id) : -1;
+        if (rIdx !== -1 && rIdx !== tIdx) {
+            // The real message is already present (a flushed SSE echo) — drop the
+            // placeholder and fold our `__mine` onto the real entry.
+            if (tIdx !== -1) teamThreadMessages.splice(tIdx, 1);
+            const ri = teamThreadMessages.findIndex((m) => m.id === realMsg.id);
+            teamThreadMessages[ri] = Object.assign({}, teamThreadMessages[ri], realMsg, { __pending: false, __failed: false });
+        } else if (tIdx !== -1) {
+            teamThreadMessages[tIdx] = Object.assign({}, teamThreadMessages[tIdx], realMsg, { __pending: false, __failed: false });
+        } else {
+            teamThreadMessages.push(Object.assign({}, realMsg, { __pending: false }));
+        }
+        renderTeamMessages();
+    }
+
+    function failTeamMessage(tempId) {
+        const idx = teamThreadMessages.findIndex((m) => m.id === tempId);
+        if (idx === -1) return;
+        teamThreadMessages[idx].__pending = false;
+        teamThreadMessages[idx].__failed = true;
+        renderTeamMessages();
+    }
+
+    // --- Enter to send; Shift+Enter inserts a newline (delegated) ---
+    threadPanel.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+        const bodyEl = e.target.closest('[data-team-reply-body]');
+        if (!bodyEl) return;
+        e.preventDefault();
+        bodyEl.closest('[data-team-reply-form]')?.requestSubmit();
     });
 
     // --- New Chat Modal ---
@@ -1597,11 +1890,26 @@ function initTeamChat() {
         }
     });
 
-    // --- Initial state: if a thread was server-rendered, mark it active ---
+    // --- Initial state: if a thread was server-rendered, render it from the
+    // embedded JSON payload (no fetch) so alignment is correct on the FIRST paint
+    // — the server can't know which participant is "me", so it ships the raw
+    // messages and we paint them here. Falls back to a fetch if the payload is
+    // missing/unparseable.
     const prerendered = threadPanel.querySelector('[data-conversation-id]');
     if (prerendered) {
         activeConvId = prerendered.dataset.conversationId;
+        const scope = prerendered.dataset.scope || 'direct';
+        const jsonEl = prerendered.querySelector('[data-team-thread-json]');
+        let messages = null;
+        if (jsonEl) {
+            try { messages = JSON.parse(jsonEl.textContent); } catch (_) { messages = null; }
+        }
         showThread();
+        if (Array.isArray(messages)) {
+            renderThread(activeConvId, scope, messages);
+        } else {
+            loadThread(activeConvId);
+        }
     }
 
     // --- SSE: reuse existing inbox stream, filter for team events ---
@@ -1634,11 +1942,10 @@ function initTeamChat() {
         if (type === 'message') {
             // Append to active thread
             if (convId === activeConvId) {
-                const messagesArea = threadPanel.querySelector('[data-team-messages]');
-                if (messagesArea) {
-                    messagesArea.append(createTeamMessageEl(data));
-                    messagesArea.scrollTop = messagesArea.scrollHeight;
-                }
+                // Hold echoes that land mid-send; flushed once the response places
+                // our own message (so it never flashes on the left first).
+                if (pendingSends > 0) sseBuffer.push(data);
+                else addTeamMessage(data);
             }
             // Update conversation list snippet
             updateConvListItem(convId, {
@@ -1677,6 +1984,10 @@ function initTeamChat() {
     }
 
     connectSSE();
+
+    // Pin an existing (server-rendered) thread to its latest message on load.
+    const initialMessages = threadPanel.querySelector('[data-team-messages]');
+    if (initialMessages) initialMessages.scrollTop = initialMessages.scrollHeight;
 }
 
 document.addEventListener('DOMContentLoaded', initTeamChat);

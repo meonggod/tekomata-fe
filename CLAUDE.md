@@ -25,21 +25,27 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
 
 ## Key locations
 - `app/Services/Tekomata/` — Go API client (`TekomataClient`: timeouts, retries, status→typed
-  exception), `TokenStore` (session JWT), `AuthApi`, `Exceptions/`.
+  exception), `TokenStore` (session JWT; `userId()` decodes the access-token JWT `sub` claim —
+  `/auth/me` is 404 and `user()` is never populated, so use `userId()` for the signed-in user id),
+  `AuthApi`, `InboxApi`, `TeamChatApi`, `WalletApi`, `Exceptions/`.
 - `app/Http/Middleware/` — `EnsureAuthenticated` (`auth.api` alias), `EnsureOnboarded`
   (`ensure.onboarded`), `EnsureInternalStaff` (`internal.staff`), `SetLocale`.
 - `app/Http/Controllers/` — thin controllers: `CompanySettingsController` (settings page),
-  `InboxController` (agent inbox), `TeamChatController` (internal team chat).
+  `InboxController` (agent inbox + cursor-paginated thread), `TeamChatController` (internal team
+  chat), `WalletController` (prepaid IDR wallet).
 - `config/services.php` → `tekomata` — API base URL/timeouts/retries (from `.env`).
 - `resources/views/` — Blade; layout at `components/layouts/app.blade.php`.
 - `resources/views/settings/` — company settings (company identity, assistant, billing,
   WhatsApp numbers, web-chat widget embed code).
 - `resources/views/inbox/` — omnichannel agent inbox (conversations list + thread).
 - `resources/views/team/` — internal team chat.
+- `resources/views/wallet/` — prepaid IDR wallet (spendable + reward balances, top-up/convert/
+  withdraw, bucket-tagged transaction history).
 - `public/js/widget.js` — **embeddable web-chat widget** (standalone IIFE, no build step).
   Served at a stable URL for external `<script>` embedding. Do **not** move this into Vite.
 - `resources/js/app.js` — panel JS: copy-to-clipboard, country combobox, business-hours
-  configurator, inbox split-pane, team-chat split-pane (all progressive enhancement, no framework).
+  configurator, inbox split-pane, team-chat split-pane, wallet (all progressive enhancement, no
+  framework). The inbox/team thread logic is the most involved — see **Messaging UI** below.
 - `tasks/` — `[STORY]` docs from ClickUp (see `tasks/README.md`).
 
 ### URL structure (two audiences)
@@ -120,6 +126,38 @@ container; just emit content and it lands at the standard width. Pages that want
 page width. Full-height split-pane pages (inbox/team) pass `:full-height="true"`, which opts out of
 the width cap so they can go full-bleed. Sidebar sections that bundle sibling views switch with
 segmented tabs (`x-products-tabs`, `x-messages-tabs`).
+
+## Messaging UI (inbox + team chat) — non-obvious rules
+Both threads live in `resources/js/app.js` (`initInbox`, `initTeamChat`) as a split-pane SPA over
+server-rendered partials (`inbox/partials/thread.blade.php`, `team/partials/thread.blade.php`). They
+look similar but **attribute "who sent this" differently** — and that difference cost real debugging,
+so respect it:
+
+- **Inbox aligns by `direction`.** The API enum is **`in | out | internal`** (NOT
+  `inbound/outbound`) — normalise `in→inbound` (left/gray), `out→outbound` (right/indigo),
+  `internal`→centered note, in **both** the Blade partial and `createMessageEl`. The customer inbox
+  filters out `kind: internal` conversations (`InboxController::externalOnly`) and redirects a direct
+  visit to an internal thread to `/app/team`.
+- **Team chat aligns by `participant_id`.** Team messages carry **only `participant_id`** — no
+  `author_user_id`/`author_name` — and there is no participant→user map endpoint. So the FE learns
+  *its own* participant id from the response to messages **it sends**, stored in a `Set` in
+  `localStorage` keyed per user (`tekomata.team.my_participants:<userId>`). A message is "mine" iff
+  its participant_id is in that set; until you've sent once in a thread, your own past messages sit
+  left. See memory `team-chat-author-attribution-gap`.
+- **The SSE echo of your own message has fewer fields** than the POST response (team echo lacks
+  `participant_id`). Merge same-id messages so the richer copy wins; during a send, buffer SSE echoes
+  until the response lands (`pendingSends`/`sseBuffer`) to avoid a left→right flash.
+- **Optimistic send** (both threads): clear the composer and render the message on the right
+  **immediately** (`__pending`), POST in the background, then reconcile to the real id; on failure
+  mark it `__failed` (red) and restore the text. Don't reintroduce blocking `await`-before-clear.
+- **Pagination differs by endpoint.** The **inbox** thread uses cursor pagination
+  (`GET /api/v1/inbox/conversations/{id}/messages?before|after|around`, returns a `page` object) —
+  `loadOlder` prepends on scroll-up (scroll-preserved), `loadNewer` appends, `?message=<id>` opens an
+  `around` window and `focusTargetMessage` jumps + flashes it (`.msg-flash`). The **team** endpoint
+  is the legacy oldest-first `limit/offset` (no cursors, no total, no newest-first) — so
+  `TeamChatController::latestThreadMessages` fetches a wide window and keeps the **last** slice so the
+  thread opens on the newest messages. Live messages only auto-scroll when near the bottom (don't
+  yank an agent reading history).
 
 ## Embeddable web-chat widget (`public/js/widget.js`)
 A self-contained vanilla JS IIFE that businesses embed on their websites. It is **not** part of

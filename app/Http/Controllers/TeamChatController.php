@@ -13,15 +13,38 @@ class TeamChatController extends Controller
 {
     private const PAGE_LIMIT = 25;
 
+    /** How many messages to pull so the latest window is reachable. */
+    private const THREAD_FETCH_CAP = 500;
+
+    /** How many of the most recent messages to actually show on open. */
+    private const THREAD_WINDOW = 50;
+
     public function __construct(
         private readonly TeamChatApi $teamChat,
         private readonly TokenStore $tokens,
     ) {}
 
+    /**
+     * The most recent messages for a thread. The team endpoint returns
+     * oldest→newest with a plain limit (no newest-first/cursor mode), so a long
+     * thread would open on the OLDEST 50 and hide everything recent. We pull a
+     * wide window and keep the last slice so the thread opens on the latest.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function latestThreadMessages(string $token, string $id): array
+    {
+        $msgs = $this->teamChat->messages($token, $id, self::THREAD_FETCH_CAP, 0)['messages'] ?? [];
+
+        return count($msgs) > self::THREAD_WINDOW
+            ? array_slice($msgs, -self::THREAD_WINDOW)
+            : $msgs;
+    }
+
     public function index(): View
     {
         $token = $this->tokens->accessToken();
-        $currentUserId = $this->tokens->user()['id'] ?? '';
+        $currentUserId = $this->tokens->userId();
 
         $conversations = [];
         try {
@@ -41,7 +64,7 @@ class TeamChatController extends Controller
     public function show(string $id): View
     {
         $token = $this->tokens->accessToken();
-        $currentUserId = $this->tokens->user()['id'] ?? '';
+        $currentUserId = $this->tokens->userId();
 
         $conversations = [];
         try {
@@ -54,8 +77,7 @@ class TeamChatController extends Controller
         $threadMessages = [];
         $conversation = [];
         try {
-            $msgData = $this->teamChat->messages($token, $id);
-            $threadMessages = $msgData['messages'] ?? [];
+            $threadMessages = $this->latestThreadMessages($token, $id);
 
             // Find conversation in list for metadata
             foreach ($conversations as $conv) {
@@ -82,10 +104,8 @@ class TeamChatController extends Controller
         $token = $this->tokens->accessToken();
 
         try {
-            $msgData = $this->teamChat->messages($token, $id);
-
             return response()->json([
-                'messages' => $msgData['messages'] ?? [],
+                'messages' => $this->latestThreadMessages($token, $id),
             ]);
         } catch (TekomataApiException $e) {
             return $this->jsonError($e);

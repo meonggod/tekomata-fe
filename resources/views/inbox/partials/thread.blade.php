@@ -99,7 +99,14 @@
     <div id="inbox-messages" class="flex-1 overflow-y-auto px-4 py-4 sm:px-6" data-inbox-messages>
         @forelse ($msgs as $msg)
             @php
+                // API direction enum is `in | out | internal`; normalise the
+                // external pair to the inbound/outbound the view renders against.
                 $direction = $msg['direction'] ?? 'inbound';
+                $direction = match ($direction) {
+                    'in' => 'inbound',
+                    'out' => 'outbound',
+                    default => $direction,
+                };
                 $body = $msg['body'] ?? '';
                 $author = $msg['author_name'] ?? ($direction === 'inbound' ? __('messages.inbox.message_inbound') : __('messages.inbox.message_outbound'));
                 $msgTime = '';
@@ -114,7 +121,7 @@
 
             @if ($direction === 'internal')
                 {{-- Internal note --}}
-                <div class="mb-3 mx-auto max-w-lg rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2.5">
+                <div class="mb-3 mx-auto max-w-lg rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-2.5" data-message-id="{{ $msg['id'] ?? '' }}">
                     <div class="flex items-center gap-2 text-xs text-yellow-700">
                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
@@ -126,7 +133,7 @@
                 </div>
             @elseif ($direction === 'inbound')
                 {{-- Inbound (customer) — left aligned --}}
-                <div class="mb-3 flex justify-start">
+                <div class="mb-3 flex justify-start" data-message-id="{{ $msg['id'] ?? '' }}">
                     <div class="max-w-xs rounded-lg bg-gray-100 px-4 py-2.5 sm:max-w-md">
                         <div class="flex items-center gap-2 text-xs text-gray-500">
                             <span class="font-medium">{{ $author }}</span>
@@ -137,7 +144,7 @@
                 </div>
             @else
                 {{-- Outbound (agent) — right aligned --}}
-                <div class="mb-3 flex justify-end">
+                <div class="mb-3 flex justify-end" data-message-id="{{ $msg['id'] ?? '' }}">
                     <div class="max-w-xs rounded-lg bg-indigo-600 px-4 py-2.5 sm:max-w-md">
                         <div class="flex items-center gap-2 text-xs text-indigo-200">
                             <span class="font-medium">{{ $author }}</span>
@@ -151,6 +158,10 @@
             <p class="py-8 text-center text-sm text-gray-400">{{ __('messages.inbox.empty_state') }}</p>
         @endforelse
     </div>
+
+    {{-- Pagination cursors for this page (older/newer + has_more + focus target).
+         JS reads these to drive scroll-up history loading and jump-to-message. --}}
+    <script type="application/json" data-inbox-page-json>{!! json_encode($page ?? null, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE) !!}</script>
 
     {{-- Reply composer --}}
     <div class="shrink-0 border-t border-gray-200 bg-white px-4 py-3 sm:px-6">

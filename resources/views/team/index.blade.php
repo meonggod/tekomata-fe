@@ -25,7 +25,9 @@
      data-i18n-badge-group="{{ __('messages.team.badge_group') }}"
      data-i18n-reply-placeholder="{{ __('messages.team.reply_placeholder') }}"
      data-i18n-reply-submit="{{ __('messages.team.reply_submit') }}"
-     data-i18n-add-members="{{ __('messages.team.add_members') }}">
+     data-i18n-add-members="{{ __('messages.team.add_members') }}"
+     data-i18n-empty-state="{{ __('messages.team.empty_state') }}"
+     data-i18n-send-failed="{{ __('messages.team.send_failed') }}">
 
     {{-- Toast container --}}
     <div id="team-toast" class="pointer-events-none fixed right-4 top-4 z-50 space-y-2" aria-live="polite"></div>
