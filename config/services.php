@@ -51,20 +51,6 @@ return [
         'connect_timeout' => (int) env('TEKOMATA_API_CONNECT_TIMEOUT', 5),
         'retries' => (int) env('TEKOMATA_API_RETRIES', 2),       // transient (5xx/connection) only
         'retry_sleep_ms' => (int) env('TEKOMATA_API_RETRY_SLEEP_MS', 200),
-
-        // Platform-admin key for the tekomata-internal admin endpoints (FX rates,
-        // and the plan/feature/promo CRUD families). Sent as the X-Admin-Key
-        // header — NOT a tenant JWT, tekomata-owned and never per-company. Empty
-        // disables those admin calls (they degrade to a friendly unavailable state).
-        'admin_key' => env('TEKOMATA_ADMIN_KEY'),
-
-        // Email allowlist for the internal /internal staff area (comma-separated).
-        // Stop-gap until the API exposes a first-class staff claim; empty = nobody
-        // is staff (deny-by-default). See EnsureInternalStaff.
-        'internal_emails' => array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) env('TEKOMATA_INTERNAL_EMAILS', '')),
-        ))),
     ],
 
 ];

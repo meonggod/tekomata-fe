@@ -25,24 +25,32 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
 
 ## Key locations
 - `app/Services/Tekomata/` — Go API client (`TekomataClient`: timeouts, retries, status→typed
-  exception; `get`/`post`/`request` take an optional `array $headers` so non-JWT calls can send a
-  custom header — used for platform-admin `X-Admin-Key`), `TokenStore` (session JWT; `userId()`
-  decodes the access-token JWT `sub` claim — `/auth/me` is 404 and `user()` is never populated, so
-  use `userId()` for the signed-in user id), `AuthApi`, `InboxApi`, `TeamChatApi`, `WalletApi`,
-  `SubscriptionApi`, `BillingApi`, `ReferralApi`, `CsApi`, `ProductApi`, `ProductMediaApi` (product
-  gallery; uses `TekomataClient::postMultipart` for uploads), `CatalogImportApi`, `AdminFxApi`
-  (platform-admin, X-Admin-Key), `Exceptions/`.
+  exception; `get`/`post`/`request` take an optional `array $headers` for custom headers), `TokenStore`
+  (tenant session JWT; `userId()` decodes the access-token JWT `sub` claim — `/auth/me` is 404 and
+  `user()` is never populated, so use `userId()` for the signed-in user id), `AuthApi`, `InboxApi`,
+  `TeamChatApi`, `WalletApi`, `SubscriptionApi`, `BillingApi`, `ReferralApi`, `CsApi`, `ProductApi`,
+  `ProductMediaApi` (product gallery; uses `TekomataClient::postMultipart` for uploads),
+  `CatalogImportApi`, `Exceptions/`.
+  **Staff console (`/internal/*`):** `StaffTokenStore` (the staff JWT — separate session keys from the
+  tenant `TokenStore`; `email()`/`role()`/`isSuperadmin()` decoded from the access-token claims),
+  `StaffAuthApi` (staff login/refresh/logout/forgot/set-password), and the `Admin/` family
+  (`PlatformConfigApi`, `AiCatalogApi`, `CsReviewApi`, `StaffAdminApi`) — all staff-JWT'd against
+  `/api/v1/internal/*`. See **Internal dashboard console** below.
 - `app/Http/Middleware/` — `EnsureAuthenticated` (`auth.api` alias), `EnsureOnboarded`
-  (`ensure.onboarded`), `EnsureInternalStaff` (`internal.staff`), `SetLocale`.
+  (`ensure.onboarded`), `EnsureStaffAuthenticated` (`internal.auth` — the staff-JWT guard for
+  `/internal/*`, refresh-once-on-expiry, redirects to `internal.login`), `EnsureStaffSuperadmin`
+  (`internal.superadmin` — gates money-moving writes to the `superadmin` role), `SetLocale`.
 - `app/Http/Controllers/` — thin controllers: `CompanySettingsController` (settings page),
   `ProductController` (product CRUD + stock), `ProductMediaController` (product gallery — same-origin
   JSON proxy returning `{data}|{error}`, JWT server-side), `InboxController` (agent inbox +
   cursor-paginated thread), `TeamChatController` (internal team chat), `WalletController` (prepaid IDR
   wallet), `SubscriptionController` (plans + subscribe/cancel), `BillingController` (cost breakdown
-  panel), `ReferralController` (referral page), `CsController` (CS-assistant proxy),
-  `InternalFxController` (internal FX rates view).
-- `config/services.php` → `tekomata` — API base URL/timeouts/retries + `admin_key`
-  (`TEKOMATA_ADMIN_KEY`, the platform-admin `X-Admin-Key`) + `internal_emails` (from `.env`).
+  panel), `ReferralController` (referral page), `CsController` (CS-assistant proxy). **Staff console:**
+  `InternalDashboardController` + `InternalFxController` and the `Controllers/Internal/` group
+  (`StaffAuthController`, `BillingConfigController`, `RegionController`, `AiCatalogController`,
+  `CsReviewController`, `StaffController`).
+- `config/services.php` → `tekomata` — API base URL/timeouts/retries (the staff console needs no extra
+  config; it authenticates with a staff login, not a shared key).
 - `resources/views/` — Blade; layout at `components/layouts/app.blade.php`.
 - `resources/views/settings/` — company settings (company identity, assistant, billing,
   WhatsApp numbers, web-chat widget embed code).
@@ -59,8 +67,10 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
   7/30/90-day window, alongside the spendable balance; complements the wallet's raw ledger.
 - `resources/views/referral/` — the company's referral code + share link (copy), total reward,
   and referred-companies table; rewards land in the **reward** wallet bucket.
-- `resources/views/internal/fx.blade.php` — **tekomata-staff** FX rates view (current USD→IDR
-  rates + freshness + manual "sync now"), via `AdminFxApi` (X-Admin-Key, not a tenant JWT).
+- `resources/views/internal/` — **tekomata-staff** console pages: `auth/` (staff login / forgot /
+  set-password), `dashboard`, `billing-config`, `fx`, `regions`, `ai`, `cs`, `staff`. Shared
+  presentational components in `components/internal/` (`field`, `save-button`, `active-badge`). See
+  **Internal dashboard console** below.
 - `resources/views/components/cs-widget.blade.php` — **CS feature-assistant** floating chat widget
   (`x-cs-widget :surface="homepage|in_app"`), on the landing page + every panel page. NOT the
   embeddable widget below — this one answers questions about *tekomata itself*. See **CS assistant**.
@@ -82,11 +92,12 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
   hardcoded path. JS that needs a panel URL reads it from a `data-*` attribute rendered by Blade
   (`data-index-url`, `data-*-url-template`), so the prefix lives in one place. `{id}` placeholders in
   those templates are replaced client-side.
-- **`/internal/*`** — tekomata-staff ops area (separate audience). Guard: `auth.api` + `internal.staff`
-  (`EnsureInternalStaff`, deny-by-default; staff via API claim or `TEKOMATA_INTERNAL_EMAILS` allowlist).
-  Not gated by onboarding. Own minimal layout `components/layouts/internal.blade.php` (no tenant sidebar;
-  its own slim nav). Screens: dashboard + FX rates (`/internal/fx`). Internal screens call the
-  **platform-admin** Go endpoints with the `X-Admin-Key` header (see **Platform-admin calls**), never a JWT.
+- **`/internal/*`** — the tekomata-staff console (separate audience **and** separate identity). Staff
+  log in at `/internal/login` with their own account (no company membership) and get a **staff JWT**
+  held server-side (`StaffTokenStore`); guard is `internal.auth` (+ `internal.superadmin` on
+  money-moving writes). A tenant token is never accepted here. Not gated by onboarding. Own layouts
+  `components/layouts/internal.blade.php` (signed-in console, role-gated nav) and `internal-auth.blade.php`
+  (login/forgot/set-password). See **Internal dashboard console** below.
 
 ## Localization (ID default + EN) — where to edit
 No hard-coded strings; use `__('messages.<key>')`. To fix wording, edit the value in **both**
@@ -100,11 +111,11 @@ No hard-coded strings; use `__('messages.<key>')`. To fix wording, edit the valu
 ```
 TEKOMATA_API_URL, TEKOMATA_API_TIMEOUT, TEKOMATA_API_CONNECT_TIMEOUT,
 TEKOMATA_API_RETRIES, TEKOMATA_API_RETRY_SLEEP_MS
-TEKOMATA_ADMIN_KEY      # platform-admin X-Admin-Key for /internal screens (FX, future plan/promo CRUD).
-                        # Empty ⇒ those admin calls degrade to a friendly "not configured" state.
-TEKOMATA_INTERNAL_EMAILS  # comma-separated staff allowlist for /internal (deny-by-default)
 APP_LOCALE=id   SESSION_DRIVER=database   # shared driver so JWTs survive scaling
 ```
+The `/internal/*` staff console needs **no env config** — it authenticates with a dedicated staff
+login (its own JWT), not a shared key. (The old `TEKOMATA_ADMIN_KEY` / `TEKOMATA_INTERNAL_EMAILS`
+stop-gaps were retired by the staff principal.)
 
 ## Work flow (ClickUp → tasks/ → code)
 Export a refined `[STORY]` into `tasks/STORY-*.md`, implement **only the `## Frontend` units**,
@@ -213,17 +224,41 @@ embedded JSON config block (`[data-product-media-config]`), nothing hard-coded i
   upload). Controller reads bytes with `file_get_contents($file->getRealPath())` (the import pattern).
 - Strings: `messages.products.media.*`; errors: `errors.product_media.*` + `errors.file.storage_unavailable`.
 
-## Platform-admin calls (`X-Admin-Key`) — non-obvious rules
-Some Go endpoints are **tekomata-platform-admin**, not tenant-scoped: they authenticate with an
-`X-Admin-Key` header (a single tekomata-owned key) instead of a tenant JWT. FX rate sync is the
-first; plan / feature-price / promo / knowledge-base CRUD are the same family.
-- The key lives in `config('services.tekomata.admin_key')` ← `TEKOMATA_ADMIN_KEY`. **Never**
-  per-company, never in the browser.
-- `TekomataClient`'s `get`/`post`/`request` take an optional final `array $headers` — that's how the
-  admin key rides along (`['X-Admin-Key' => …]`). Build a dedicated tiny service per admin family
-  (see `AdminFxApi`), bind it in `AppServiceProvider` with the key injected, expose a `configured()`
-  so the view can degrade to a friendly "admin key not configured" state when the key is absent.
-- These screens live under `/internal/*` (staff guard) — a tenant JWT must never reach them.
+## Internal dashboard console (`/internal/*`) — non-obvious rules
+The tekomata-staff ops console. Its defining trait: a **staff principal wholly separate from tenant
+auth** — a different audience, a different login, a different JWT. Treat it as a second mini-app that
+happens to share the Vite bundle and the `TekomataClient`.
+- **Separate identity, separate session keys.** `StaffTokenStore` (keys `tekomata.staff.*`) holds the
+  staff access/refresh pair — it never touches the tenant `TokenStore`. `email()`/`role()`/
+  `isSuperadmin()` are decoded from the staff access-token claims (`sub`/`email`/`role`), same JWT
+  trick as `TokenStore::userId()`. A tenant token simply isn't present under the staff keys, so a
+  company user hitting `/internal/*` is bounced to the staff login — no allowlist needed.
+- **Two-tier guard.** `internal.auth` (`EnsureStaffAuthenticated`, refresh-once-on-expiry → redirect
+  to `internal.login`) gates every console page. `internal.superadmin` (`EnsureStaffSuperadmin`)
+  further restricts **money-moving writes** to the `superadmin` role; view-only `ops` can read every
+  panel but the mutate routes 403 (and the Blade hides their controls via `$isSuperadmin`). Reads are
+  open to any staff; CS review + knowledge are operational (non-money) so any staff incl. `ops` may
+  write them.
+- **Public vs guarded routes.** `/internal/{login,logout,forgot-password,set-password}` sit OUTSIDE
+  the guard (the visitor isn't signed in yet); everything else is inside the `internal.auth` group.
+  Route names are all `internal.*`; always link with `route()`.
+- **All staff calls go to `/api/v1/internal/*` with the staff JWT** — never a tenant JWT, never the
+  retired `X-Admin-Key`. One thin service per family under `app/Services/Tekomata/Admin/`
+  (`PlatformConfigApi` = plans/feature-prices/promo-codes/platform-settings/countries/currencies/fx;
+  `AiCatalogApi`; `CsReviewApi`; `StaffAdminApi`). The controller passes the token in
+  (`StaffTokenStore::accessToken()`) so the services stay stateless.
+- **Panels degrade per-section.** Each index reads its sections inside try/catch and renders an empty
+  section on failure (`BillingConfigController::safe`, the `catch (TekomataApiException)` in the
+  others) — one dead endpoint never takes the whole panel down. This matters because the local Go API
+  may not expose every `/internal/*` endpoint yet.
+- **Server-rendered, POST-back, no SPA.** Forms post and `back()->with('status', …)`; the layout
+  renders the flash. Inline edit/add forms use `<details>` toggles. Shared inputs are
+  `x-internal.field` / `x-internal.save-button` / `x-internal.active-badge`. Strings live under
+  `messages.internal.*`; the staff-auth + config flashes are there too.
+- **FX moved here from the old admin-key path.** `InternalFxController` now reads
+  `PlatformConfigApi::fxRates`/`fxSync` with the staff JWT and adds the staleness `fx_max_age_hours`
+  setting (superadmin). The deleted `AdminFxApi`/`EnsureInternalStaff` + `TEKOMATA_ADMIN_KEY`/
+  `TEKOMATA_INTERNAL_EMAILS` were superseded by the staff principal — don't reintroduce them.
 
 ## CS feature-assistant (`x-cs-widget`, `initCsWidget`) — NOT the embeddable widget
 Two different "chat widgets" exist; do not confuse them. The CS assistant answers questions about
@@ -234,6 +269,12 @@ Two different "chat widgets" exist; do not confuse them. The CS assistant answer
 - **The JWT never reaches the browser.** The widget POSTs same-origin to `/cs/ask` (`CsController`,
   a public web route); the controller attaches the session token **only** when `surface=in_app`, so
   the homepage asks anonymously (AI cost is tekomata's own) and in-app answers are company-aware.
+- **API contract (two-hop proxy).** Browser → `POST /cs/ask` `{question, surface}` (`CsController::ask`)
+  → Go API `POST /api/v1/cs/ask` `{question, surface}` with the optional Bearer JWT (`CsApi::ask`),
+  which returns `{data:{answer, answered, confidence}}`. The controller unwraps `data` and re-envelopes
+  to `{answer, answered, confidence}` for the widget. The Go API base URL is `TEKOMATA_API_URL`
+  (`config/services.php` → `tekomata.base_url`). The backend handler + its docs live in the **separate
+  Go API repo**, not here — this repo only owns the client side of the contract (`CsApi` docblock).
 - Synchronous ask→answer (no polling). Answers are rendered with `textContent` — **never** injected
   as HTML. Honest fallback/error bubbles on an unknown question or a backend failure.
 

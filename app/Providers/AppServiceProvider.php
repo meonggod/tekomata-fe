@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Services\Tekomata\AdminFxApi;
+use App\Services\Tekomata\StaffTokenStore;
 use App\Services\Tekomata\TekomataClient;
 use App\Services\Tekomata\TokenStore;
 use Illuminate\Contracts\Session\Session;
@@ -20,19 +20,15 @@ class AppServiceProvider extends ServiceProvider
             return new TekomataClient($app['config']->get('services.tekomata'));
         });
 
-        // Platform-admin FX client: same HTTP client, but carries the tekomata
-        // admin key (X-Admin-Key) instead of a tenant JWT. Only the internal area
-        // resolves it.
-        $this->app->singleton(AdminFxApi::class, function ($app) {
-            return new AdminFxApi(
-                $app->make(TekomataClient::class),
-                $app['config']->get('services.tekomata.admin_key'),
-            );
-        });
-
         // TokenStore is request-scoped: it wraps the active session.
         $this->app->scoped(TokenStore::class, function ($app) {
             return new TokenStore($app->make(Session::class));
+        });
+
+        // StaffTokenStore is the /internal staff principal — same session, but
+        // its own keys, wholly separate from the tenant TokenStore above.
+        $this->app->scoped(StaffTokenStore::class, function ($app) {
+            return new StaffTokenStore($app->make(Session::class));
         });
     }
 

@@ -10,6 +10,12 @@ use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\InboxController;
+use App\Http\Controllers\Internal\AiCatalogController;
+use App\Http\Controllers\Internal\BillingConfigController;
+use App\Http\Controllers\Internal\CsReviewController;
+use App\Http\Controllers\Internal\RegionController;
+use App\Http\Controllers\Internal\StaffAuthController;
+use App\Http\Controllers\Internal\StaffController;
 use App\Http\Controllers\InternalDashboardController;
 use App\Http\Controllers\InternalFxController;
 use App\Http\Controllers\LoginController;
@@ -256,16 +262,77 @@ Route::prefix('app')->middleware('auth.api')->group(function () {
     }); // end ensure.onboarded
 }); // end auth.api
 
-// Internal tekomata-staff area — separate audience from the tenant panel, so it
-// lives under its own /internal prefix with its own guard (EnsureInternalStaff,
-// alias `internal.staff`). NOT gated by ensure.onboarded — staff are not tenants.
-// This is the home for the ops/daily-job tooling; add screens under here.
-Route::prefix('internal')->middleware(['auth.api', 'internal.staff'])->group(function () {
+// Internal tekomata-staff console — a SEPARATE audience and a SEPARATE identity
+// from the tenant panel. Staff log in here with their own account (no company
+// membership) and get a staff JWT held server-side (StaffTokenStore); a tenant
+// token is never accepted. `internal.auth` gates every page; `internal.superadmin`
+// further restricts money-moving config writes (view-only `ops` can read but not
+// mutate). NOT gated by ensure.onboarded — staff are not tenants.
+
+// Public staff-auth routes (outside the guard) — login + email-link reset/invite.
+Route::prefix('internal')->group(function () {
+    Route::get('/login', [StaffAuthController::class, 'showLogin'])->name('internal.login');
+    Route::post('/login', [StaffAuthController::class, 'login'])->name('internal.login.store');
+    Route::post('/logout', [StaffAuthController::class, 'logout'])->name('internal.logout');
+    Route::get('/forgot-password', [StaffAuthController::class, 'showForgotPassword'])->name('internal.password.request');
+    Route::post('/forgot-password', [StaffAuthController::class, 'forgotPassword'])->name('internal.password.email');
+    Route::get('/set-password', [StaffAuthController::class, 'showSetPassword'])->name('internal.password.set');
+    Route::post('/set-password', [StaffAuthController::class, 'setPassword'])->name('internal.password.update');
+});
+
+// Guarded staff console — every config panel mounts behind `internal.auth`.
+Route::prefix('internal')->middleware('internal.auth')->group(function () {
     Route::redirect('/', '/internal/dashboard');
     Route::get('/dashboard', [InternalDashboardController::class, 'index'])->name('internal.dashboard');
 
-    // FX rates: current USD→IDR rates + freshness, with a manual "sync now". Talks
-    // to the platform-admin FX endpoints (X-Admin-Key), not the tenant JWT.
+    // Billing & platform config — plans, feature pricing, promo codes, and the
+    // platform settings bag. Reads any staff; writes superadmin-only.
+    Route::get('/billing-config', [BillingConfigController::class, 'index'])->name('internal.billing.index');
+    Route::middleware('internal.superadmin')->group(function () {
+        Route::post('/billing-config/plans', [BillingConfigController::class, 'storePlan'])->name('internal.billing.plans.store');
+        Route::put('/billing-config/plans/{id}', [BillingConfigController::class, 'updatePlan'])->name('internal.billing.plans.update');
+        Route::put('/billing-config/feature-prices/{key}', [BillingConfigController::class, 'updateFeaturePrice'])->name('internal.billing.features.update');
+        Route::post('/billing-config/promo-codes', [BillingConfigController::class, 'storePromoCode'])->name('internal.billing.promos.store');
+        Route::put('/billing-config/promo-codes/{id}', [BillingConfigController::class, 'updatePromoCode'])->name('internal.billing.promos.update');
+        Route::put('/billing-config/settings', [BillingConfigController::class, 'updateSettings'])->name('internal.billing.settings.update');
+    });
+
+    // FX rates: current USD→IDR rates + freshness, manual "sync now", and the
+    // staleness max-age guard. Re-exposed under the staff guard (staff JWT, not
+    // the old X-Admin-Key). Sync is open to any staff; the max-age write is
+    // superadmin-only.
     Route::get('/fx', [InternalFxController::class, 'index'])->name('internal.fx.index');
     Route::post('/fx/sync', [InternalFxController::class, 'sync'])->name('internal.fx.sync');
+    Route::put('/fx/max-age', [InternalFxController::class, 'updateMaxAge'])->middleware('internal.superadmin')->name('internal.fx.max-age');
+
+    // Countries & currencies — platform-level active flags. Writes superadmin-only.
+    Route::get('/regions', [RegionController::class, 'index'])->name('internal.regions.index');
+    Route::middleware('internal.superadmin')->group(function () {
+        Route::put('/regions/countries/{code}', [RegionController::class, 'toggleCountry'])->name('internal.regions.countries.toggle');
+        Route::put('/regions/currencies/{code}', [RegionController::class, 'toggleCurrency'])->name('internal.regions.currencies.toggle');
+    });
+
+    // AI providers & model catalog — provider registry (write-only credentials),
+    // per-model pricing/flags, the pending-review queue, and a manual sync. All
+    // catalog writes (incl. sync, which can add billable models) are superadmin-only.
+    Route::get('/ai', [AiCatalogController::class, 'index'])->name('internal.ai.index');
+    Route::middleware('internal.superadmin')->group(function () {
+        Route::post('/ai/providers', [AiCatalogController::class, 'storeProvider'])->name('internal.ai.providers.store');
+        Route::put('/ai/providers/{id}', [AiCatalogController::class, 'updateProvider'])->name('internal.ai.providers.update');
+        Route::post('/ai/models/{id}/price', [AiCatalogController::class, 'priceModel'])->name('internal.ai.models.price');
+        Route::put('/ai/models/{id}', [AiCatalogController::class, 'updateModel'])->name('internal.ai.models.update');
+        Route::post('/ai/sync', [AiCatalogController::class, 'sync'])->name('internal.ai.sync');
+    });
+
+    // CS-assistant review queue + platform knowledge base. Operational (non-money)
+    // — any staff incl. view-only `ops` may review questions and edit knowledge.
+    Route::get('/cs', [CsReviewController::class, 'index'])->name('internal.cs.index');
+    Route::post('/cs/questions/{id}/review', [CsReviewController::class, 'review'])->name('internal.cs.review');
+    Route::post('/cs/knowledge', [CsReviewController::class, 'storeKnowledge'])->name('internal.cs.knowledge.store');
+    Route::put('/cs/knowledge/{id}', [CsReviewController::class, 'updateKnowledge'])->name('internal.cs.knowledge.update');
+
+    // Staff management + the config-change audit log. Roster + audit any staff;
+    // inviting a new staff member is superadmin-only.
+    Route::get('/staff', [StaffController::class, 'index'])->name('internal.staff.index');
+    Route::post('/staff', [StaffController::class, 'store'])->middleware('internal.superadmin')->name('internal.staff.store');
 }); // end internal

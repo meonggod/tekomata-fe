@@ -1,8 +1,9 @@
 <?php
 
 use App\Http\Middleware\EnsureAuthenticated;
-use App\Http\Middleware\EnsureInternalStaff;
 use App\Http\Middleware\EnsureOnboarded;
+use App\Http\Middleware\EnsureStaffAuthenticated;
+use App\Http\Middleware\EnsureStaffSuperadmin;
 use App\Http\Middleware\SetLocale;
 use App\Services\Tekomata\Exceptions\ApiUnavailableException;
 use Illuminate\Foundation\Application;
@@ -27,7 +28,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'auth.api' => EnsureAuthenticated::class,
             'ensure.onboarded' => EnsureOnboarded::class,
-            'internal.staff' => EnsureInternalStaff::class,
+            // tekomata-staff console (/internal/*): a distinct principal from the
+            // tenant auth above. `internal.auth` gates every staff page;
+            // `internal.superadmin` further restricts money-moving config writes.
+            'internal.auth' => EnsureStaffAuthenticated::class,
+            'internal.superadmin' => EnsureStaffSuperadmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

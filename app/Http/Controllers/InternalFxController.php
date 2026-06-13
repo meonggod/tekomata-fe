@@ -2,50 +2,75 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\Tekomata\AdminFxApi;
+use App\Services\Tekomata\Admin\PlatformConfigApi;
+use App\Services\Tekomata\Exceptions\ApiUnavailableException;
 use App\Services\Tekomata\Exceptions\TekomataApiException;
+use App\Services\Tekomata\StaffTokenStore;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * Internal FX rates view (tekomata-staff only): current USD→IDR rates, their
- * freshness, and a "sync now" action. Talks to the platform-admin FX endpoints
- * via the X-Admin-Key'd AdminFxApi — not the tenant JWT. Thin: the backend keeps
- * rates fresh on a schedule; this just surfaces them and forwards a manual sync.
+ * Internal FX rates panel (tekomata-staff): current USD→IDR rates + freshness, a
+ * manual "sync now", and the staleness max-age guard the charging engine reads
+ * live. Re-exposed under the foundation's staff guard (`/api/v1/internal/fx/*`)
+ * with the staff JWT — replacing the old X-Admin-Key path. The max-age write is
+ * superadmin-only (route middleware); sync is open to any staff.
  */
 class InternalFxController extends Controller
 {
-    public function __construct(private readonly AdminFxApi $fx) {}
+    public function __construct(
+        private readonly PlatformConfigApi $api,
+        private readonly StaffTokenStore $tokens,
+    ) {}
 
     public function index(): View
     {
-        $configured = $this->fx->configured();
+        $token = (string) $this->tokens->accessToken();
         $rates = [];
+        $settings = [];
 
-        if ($configured) {
-            try {
-                $rates = $this->fx->rates();
-            } catch (TekomataApiException) {
-                // Degrade gracefully — render the page with no rates.
-            }
+        try {
+            $rates = $this->api->fxRates($token);
+            $settings = $this->api->platformSettings($token);
+        } catch (TekomataApiException) {
+            // Degrade gracefully — render the page with no rates.
         }
 
         return view('internal.fx', [
-            'configured' => $configured,
             'rates' => $rates,
+            'maxAgeHours' => $settings['fx_max_age_hours'] ?? null,
+            'isSuperadmin' => $this->tokens->isSuperadmin(),
         ]);
     }
 
-    public function sync(): RedirectResponse
+    public function sync(Request $request): RedirectResponse
     {
         try {
-            $this->fx->sync();
+            $this->api->fxSync((string) $this->tokens->accessToken());
+        } catch (ApiUnavailableException $e) {
+            return $this->apiErrorModal($e, $request);
         } catch (TekomataApiException $e) {
-            // e.g. fx.sync_unavailable (provider not configured) — surfaced from
-            // the catalog by code, never raw upstream text. Last good rate stays.
             return back()->withErrors(['fx_sync' => $e->localizedMessage()]);
         }
 
         return back()->with('status', __('messages.internal.fx.synced'));
+    }
+
+    public function updateMaxAge(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'fx_max_age_hours' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            $this->api->updatePlatformSetting((string) $this->tokens->accessToken(), 'fx_max_age_hours', $data['fx_max_age_hours']);
+        } catch (ApiUnavailableException $e) {
+            return $this->apiErrorModal($e, $request);
+        } catch (TekomataApiException $e) {
+            return back()->withErrors(['fx_max_age_hours' => $e->localizedMessage()]);
+        }
+
+        return back()->with('status', __('messages.internal.fx.max_age_saved'));
     }
 }
