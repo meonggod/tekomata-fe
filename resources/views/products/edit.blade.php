@@ -167,5 +167,8 @@
                 </form>
             @endif
         </div>
+
+        {{-- Photos & videos --}}
+        @include('products.partials.media-manager')
     </div>
 </x-layouts.app>

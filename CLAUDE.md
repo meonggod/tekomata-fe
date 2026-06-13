@@ -29,20 +29,26 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
   custom header — used for platform-admin `X-Admin-Key`), `TokenStore` (session JWT; `userId()`
   decodes the access-token JWT `sub` claim — `/auth/me` is 404 and `user()` is never populated, so
   use `userId()` for the signed-in user id), `AuthApi`, `InboxApi`, `TeamChatApi`, `WalletApi`,
-  `SubscriptionApi`, `BillingApi`, `ReferralApi`, `CsApi`, `AdminFxApi` (platform-admin, X-Admin-Key),
-  `Exceptions/`.
+  `SubscriptionApi`, `BillingApi`, `ReferralApi`, `CsApi`, `ProductApi`, `ProductMediaApi` (product
+  gallery; uses `TekomataClient::postMultipart` for uploads), `CatalogImportApi`, `AdminFxApi`
+  (platform-admin, X-Admin-Key), `Exceptions/`.
 - `app/Http/Middleware/` — `EnsureAuthenticated` (`auth.api` alias), `EnsureOnboarded`
   (`ensure.onboarded`), `EnsureInternalStaff` (`internal.staff`), `SetLocale`.
 - `app/Http/Controllers/` — thin controllers: `CompanySettingsController` (settings page),
-  `InboxController` (agent inbox + cursor-paginated thread), `TeamChatController` (internal team
-  chat), `WalletController` (prepaid IDR wallet), `SubscriptionController` (plans + subscribe/cancel),
-  `BillingController` (cost breakdown panel), `ReferralController` (referral page), `CsController`
-  (CS-assistant proxy), `InternalFxController` (internal FX rates view).
+  `ProductController` (product CRUD + stock), `ProductMediaController` (product gallery — same-origin
+  JSON proxy returning `{data}|{error}`, JWT server-side), `InboxController` (agent inbox +
+  cursor-paginated thread), `TeamChatController` (internal team chat), `WalletController` (prepaid IDR
+  wallet), `SubscriptionController` (plans + subscribe/cancel), `BillingController` (cost breakdown
+  panel), `ReferralController` (referral page), `CsController` (CS-assistant proxy),
+  `InternalFxController` (internal FX rates view).
 - `config/services.php` → `tekomata` — API base URL/timeouts/retries + `admin_key`
   (`TEKOMATA_ADMIN_KEY`, the platform-admin `X-Admin-Key`) + `internal_emails` (from `.env`).
 - `resources/views/` — Blade; layout at `components/layouts/app.blade.php`.
 - `resources/views/settings/` — company settings (company identity, assistant, billing,
   WhatsApp numbers, web-chat widget embed code).
+- `resources/views/products/` — product CRUD pages. The edit page hosts the **product media
+  manager** (`partials/media-manager.blade.php`): angle-tagged photo upload, video upload, drag
+  reorder, set-thumbnail, delete. See **Product media gallery** below.
 - `resources/views/inbox/` — omnichannel agent inbox (conversations list + thread).
 - `resources/views/team/` — internal team chat.
 - `resources/views/wallet/` — prepaid IDR wallet (spendable + reward balances, top-up/convert/
@@ -61,9 +67,11 @@ vanilla JS file (no Vite, no build step) that any business pastes onto their web
 - `public/js/widget.js` — **embeddable web-chat widget** (standalone IIFE, no build step).
   Served at a stable URL for external `<script>` embedding. Do **not** move this into Vite.
 - `resources/js/app.js` — panel JS: copy-to-clipboard, country combobox, business-hours
-  configurator, inbox split-pane, team-chat split-pane, wallet, `initCsWidget` (CS assistant) — all
-  progressive enhancement, no framework. The inbox/team thread logic is the most involved — see
-  **Messaging UI** below.
+  configurator, inbox split-pane, team-chat split-pane, wallet, `initCatalogImport` (async import),
+  `initProductMedia` (product gallery), `initCsWidget` (CS assistant) — all progressive enhancement,
+  no framework. The inbox/team thread logic is the most involved — see **Messaging UI** below.
+- `public/img/video-placeholder.svg` — shared black-with-video-icon tile the product gallery shows
+  for videos (videos aren't resized / have no generated poster).
 - `tasks/` — `[STORY]` docs from ClickUp (see `tasks/README.md`).
 
 ### URL structure (two audiences)
@@ -181,6 +189,29 @@ so respect it:
   `TeamChatController::latestThreadMessages` fetches a wide window and keeps the **last** slice so the
   thread opens on the newest messages. Live messages only auto-scroll when near the bottom (don't
   yank an agent reading history).
+
+## Product media gallery (`initProductMedia`) — non-obvious rules
+A product carries a gallery of **angle-tagged photos + videos** with one designated thumbnail. The
+manager lives on the **product edit page** (`products/partials/media-manager.blade.php`), driven by
+`initProductMedia()` in `app.js`. It mirrors the inbox/import pattern: routes + i18n + csrf ride in an
+embedded JSON config block (`[data-product-media-config]`), nothing hard-coded in JS.
+- **The JWT never reaches the browser.** Every call goes **same-origin** to `ProductMediaController`
+  (routes `products.media.{index,store,reorder,thumbnail,destroy}`), which attaches the session token
+  server-side via `ProductMediaApi`. The controller returns a small `{data}|{error}` JSON envelope;
+  the Go API stays authoritative for all limits — the client-side format/size checks are just
+  first-line feedback.
+- **Mutations re-fetch the gallery.** After upload/thumbnail/delete the JS reloads via the list route
+  so the UI always reflects server truth; reorder renders straight from the PUT response (the only
+  call that returns the reordered gallery), falling back to a reload on error.
+- **`view` is photos-only.** Photos require a `view` (front|back|left|right|top|bottom|detail); a
+  video must **not** carry one. The thumbnail must be a **photo**. Each single-angle view holds ≤1
+  photo, `detail` ≤10, videos ≤5 — enforced upstream, surfaced via `errors.product_media.*`.
+- **Render through the storage proxy, never a raw bucket URL.** Tiles use the API's `url` field with
+  an on-the-fly `?size=` variant (see `on-the-fly-image-sizing`). A **video** tile shows the shared
+  `public/img/video-placeholder.svg` (videos aren't resized / have no poster).
+- **Uploads are multipart** via `TekomataClient::postMultipart` (single attempt — never blind-retry an
+  upload). Controller reads bytes with `file_get_contents($file->getRealPath())` (the import pattern).
+- Strings: `messages.products.media.*`; errors: `errors.product_media.*` + `errors.file.storage_unavailable`.
 
 ## Platform-admin calls (`X-Admin-Key`) — non-obvious rules
 Some Go endpoints are **tekomata-platform-admin**, not tenant-scoped: they authenticate with an

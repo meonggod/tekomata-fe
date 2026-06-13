@@ -2696,3 +2696,255 @@ function initCsWidget() {
 
 document.addEventListener('DOMContentLoaded', initCsWidget);
 
+// ---------------------------------------------------------------------------
+// Product media manager (resources/views/products/partials/media-manager.blade.php)
+//
+// Photos (view-tagged) + videos, one thumbnail, drag-to-reorder. Every call
+// goes same-origin to ProductMediaController (JWT attached server-side, never
+// here). Mutations re-fetch the gallery so the UI always reflects server truth.
+// Routes + strings come from the embedded JSON config — nothing hard-coded.
+// ---------------------------------------------------------------------------
+function initProductMedia() {
+    const root = document.querySelector('[data-product-media]');
+    if (!root) return;
+
+    let config;
+    try {
+        config = JSON.parse(root.querySelector('[data-product-media-config]').textContent);
+    } catch (_) {
+        return;
+    }
+
+    const routes = config.routes || {};
+    const i18n   = config.i18n || {};
+    const csrf   = config.csrf;
+
+    const t = (key) => i18n[key] ?? key;
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const mediaUrl = (name, id) => (routes[name] || '').replace('__ID__', encodeURIComponent(id));
+    const sized = (url) => url + (url.includes('?') ? '&' : '?') + 'size=' + (config.thumbSize || 300);
+
+    const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+    const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
+    const PHOTO_MAX = 20 * 1024 * 1024;
+    const VIDEO_MAX = 100 * 1024 * 1024;
+
+    async function apiError(res) {
+        try {
+            const d = await res.json();
+            return d?.error || Object.values(d?.errors || {})[0]?.[0] || t('generic_error');
+        } catch (_) {
+            return t('generic_error');
+        }
+    }
+
+    // --- elements ---
+    const errorEl   = root.querySelector('[data-pm-error]');
+    const form      = root.querySelector('[data-pm-form]');
+    const fileInput = root.querySelector('[data-pm-file]');
+    const viewWrap  = root.querySelector('[data-pm-view-wrap]');
+    const viewSel   = root.querySelector('[data-pm-view]');
+    const thumbChk  = root.querySelector('[data-pm-thumbnail]');
+    const rulesEl   = root.querySelector('[data-pm-rules]');
+    const submitBtn = root.querySelector('[data-pm-submit]');
+    const grid      = root.querySelector('[data-pm-grid]');
+    const emptyEl   = root.querySelector('[data-pm-empty]');
+    const dragHint  = root.querySelector('[data-pm-drag-hint]');
+    const kindBtns  = root.querySelectorAll('[data-pm-kind]');
+
+    let kind = 'photo';
+
+    const showError = (msg) => { errorEl.textContent = msg; errorEl.hidden = false; };
+    const clearError = () => { errorEl.hidden = true; errorEl.textContent = ''; };
+
+    // --- photo / video toggle ---
+    function selectKind(k) {
+        kind = k;
+        kindBtns.forEach((b) => {
+            const active = b.dataset.pmKind === k;
+            b.classList.toggle('bg-indigo-600', active);
+            b.classList.toggle('text-white', active);
+            b.classList.toggle('text-gray-700', !active);
+        });
+        viewWrap.hidden = k !== 'photo';
+        rulesEl.textContent = k === 'photo' ? t('photo_rules') : t('video_rules');
+        fileInput.accept = k === 'photo' ? PHOTO_TYPES.join(',') : VIDEO_TYPES.join(',');
+        fileInput.value = '';
+        clearError();
+    }
+    kindBtns.forEach((b) => b.addEventListener('click', () => selectKind(b.dataset.pmKind)));
+
+    // --- gallery render ---
+    function tile(item) {
+        const isVideo = item.kind === 'video';
+        const src = isVideo ? config.videoPlaceholder : sized(item.url);
+        const badges = [];
+        if (isVideo) {
+            badges.push(`<span class="rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">${esc(t('video_badge'))}</span>`);
+        } else if (item.view) {
+            badges.push(`<span class="rounded bg-gray-900/70 px-1.5 py-0.5 text-[10px] font-medium text-white">${esc(t('view_' + item.view))}</span>`);
+        }
+        if (item.is_thumbnail) {
+            badges.push(`<span class="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-medium text-white">${esc(t('thumbnail_badge'))}</span>`);
+        }
+
+        const thumbBtn = (!isVideo && !item.is_thumbnail)
+            ? `<button type="button" data-pm-make-thumb class="rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-indigo-700 shadow hover:bg-white">${esc(t('make_thumbnail'))}</button>`
+            : '';
+
+        const el = document.createElement('div');
+        el.className = 'group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-50';
+        el.setAttribute('draggable', 'true');
+        el.dataset.mediaId = item.id;
+        el.innerHTML = `
+            <img src="${esc(src)}" alt="" class="h-full w-full object-cover" draggable="false">
+            <div class="pointer-events-none absolute left-1.5 top-1.5 flex flex-wrap gap-1">${badges.join('')}</div>
+            <div class="absolute inset-x-1.5 bottom-1.5 flex items-center justify-between gap-1 opacity-0 transition group-hover:opacity-100">
+                ${thumbBtn}
+                <button type="button" data-pm-delete class="ml-auto rounded bg-white/90 px-1.5 py-0.5 text-[11px] font-medium text-red-600 shadow hover:bg-white">${esc(t('delete'))}</button>
+            </div>`;
+        return el;
+    }
+
+    function render(media) {
+        grid.innerHTML = '';
+        (media || []).forEach((item) => grid.appendChild(tile(item)));
+        const has = (media || []).length > 0;
+        emptyEl.hidden = has;
+        dragHint.hidden = (media || []).length < 2;
+    }
+
+    async function loadGallery() {
+        try {
+            const res = await fetch(routes.list, { headers: { Accept: 'application/json' } });
+            if (!res.ok) { showError(t('load_error')); return; }
+            const data = await res.json();
+            render(data?.data?.media || []);
+        } catch (_) {
+            showError(t('load_error'));
+        }
+    }
+
+    // --- upload ---
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearError();
+
+        const file = fileInput.files?.[0];
+        if (!file) return;
+
+        const rules = kind === 'photo' ? t('photo_rules') : t('video_rules');
+        const allowed = kind === 'photo' ? PHOTO_TYPES : VIDEO_TYPES;
+        if (!allowed.includes(file.type)) { showError(rules); return; }
+        if (file.size > (kind === 'photo' ? PHOTO_MAX : VIDEO_MAX)) { showError(rules); return; }
+
+        const fd = new FormData();
+        fd.append('file', file);
+        if (kind === 'photo') {
+            if (!viewSel.value) { showError(t('view_required')); return; }
+            fd.append('view', viewSel.value);
+            if (thumbChk.checked) fd.append('is_thumbnail', '1');
+        }
+
+        submitBtn.disabled = true;
+        const label = submitBtn.textContent;
+        submitBtn.textContent = t('uploading');
+        try {
+            const res = await fetch(routes.store, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+                body: fd,
+            });
+            if (!res.ok) { showError(await apiError(res)); return; }
+            form.reset();
+            thumbChk.checked = false;
+            await loadGallery();
+        } catch (_) {
+            showError(t('generic_error'));
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = label;
+        }
+    });
+
+    // --- tile actions (delegated) ---
+    grid.addEventListener('click', async (e) => {
+        const tileEl = e.target.closest('[data-media-id]');
+        if (!tileEl) return;
+        const id = tileEl.dataset.mediaId;
+
+        if (e.target.closest('[data-pm-make-thumb]')) {
+            clearError();
+            try {
+                const res = await fetch(mediaUrl('thumbnail', id), {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+                });
+                if (!res.ok) { showError(await apiError(res)); return; }
+                await loadGallery();
+            } catch (_) { showError(t('generic_error')); }
+            return;
+        }
+
+        if (e.target.closest('[data-pm-delete]')) {
+            if (!confirm(t('confirm_delete'))) return;
+            clearError();
+            try {
+                const res = await fetch(mediaUrl('delete', id), {
+                    method: 'DELETE',
+                    headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
+                });
+                if (!res.ok) { showError(await apiError(res)); return; }
+                await loadGallery();
+            } catch (_) { showError(t('generic_error')); }
+        }
+    });
+
+    // --- drag to reorder ---
+    let dragId = null;
+    grid.addEventListener('dragstart', (e) => {
+        const tileEl = e.target.closest('[data-media-id]');
+        if (!tileEl) return;
+        dragId = tileEl.dataset.mediaId;
+        tileEl.classList.add('opacity-50');
+    });
+    grid.addEventListener('dragend', (e) => {
+        e.target.closest('[data-media-id]')?.classList.remove('opacity-50');
+    });
+    grid.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const over = e.target.closest('[data-media-id]');
+        const dragging = grid.querySelector(`[data-media-id="${dragId}"]`);
+        if (!over || !dragging || over === dragging) return;
+        const rect = over.getBoundingClientRect();
+        const after = (e.clientY - rect.top) > rect.height / 2 || (e.clientX - rect.left) > rect.width / 2;
+        grid.insertBefore(dragging, after ? over.nextSibling : over);
+    });
+    grid.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        if (!dragId) return;
+        dragId = null;
+        const ids = [...grid.querySelectorAll('[data-media-id]')].map((el) => el.dataset.mediaId);
+        clearError();
+        try {
+            const res = await fetch(routes.reorder, {
+                method: 'PUT',
+                headers: { 'X-CSRF-TOKEN': csrf, Accept: 'application/json', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ media_ids: ids }),
+            });
+            if (!res.ok) { showError(await apiError(res)); await loadGallery(); return; }
+            const data = await res.json();
+            render(data?.data?.media || []);
+        } catch (_) {
+            showError(t('generic_error'));
+            await loadGallery();
+        }
+    });
+
+    selectKind('photo');
+    loadGallery();
+}
+
+document.addEventListener('DOMContentLoaded', initProductMedia);
+

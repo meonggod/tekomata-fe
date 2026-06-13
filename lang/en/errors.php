@@ -56,6 +56,21 @@ return [
         'sku_taken' => 'That SKU is already in use — choose a different one.',
     ],
 
+    // Product media gallery.
+    'product_media' => [
+        'unsupported_format' => 'That file type is not allowed. Use JPEG, PNG or WebP images, or MP4, WebM or MOV videos.',
+        'too_large' => 'That file is too large. Images may be up to 20 MB and videos up to 100 MB.',
+        'view_taken' => 'That view already has a photo. Remove it first, or choose a different view.',
+        'limit_exceeded' => 'Media limit reached — up to 5 videos and up to 10 detail photos per product.',
+        'thumbnail_must_be_photo' => 'Only a photo can be set as the thumbnail.',
+        'not_found' => 'That media item was not found.',
+    ],
+
+    // File storage.
+    'file' => [
+        'storage_unavailable' => 'File storage is not available right now. Please try again shortly.',
+    ],
+
     // Warehouses.
     'warehouse' => [
         'not_found' => 'Warehouse not found.',

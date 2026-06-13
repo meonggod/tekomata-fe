@@ -56,6 +56,21 @@ return [
         'sku_taken' => 'SKU itu sudah dipakai — pilih yang lain.',
     ],
 
+    // Galeri media produk.
+    'product_media' => [
+        'unsupported_format' => 'Tipe berkas itu tidak diizinkan. Gunakan gambar JPEG, PNG, atau WebP, atau video MP4, WebM, atau MOV.',
+        'too_large' => 'Berkas itu terlalu besar. Gambar maksimal 20 MB dan video maksimal 100 MB.',
+        'view_taken' => 'Sudut itu sudah memiliki foto. Hapus dulu, atau pilih sudut lain.',
+        'limit_exceeded' => 'Batas media tercapai — maksimal 5 video dan 10 foto detail per produk.',
+        'thumbnail_must_be_photo' => 'Hanya foto yang bisa dijadikan thumbnail.',
+        'not_found' => 'Item media itu tidak ditemukan.',
+    ],
+
+    // Penyimpanan berkas.
+    'file' => [
+        'storage_unavailable' => 'Penyimpanan berkas sedang tidak tersedia. Silakan coba lagi sebentar.',
+    ],
+
     // Gudang.
     'warehouse' => [
         'not_found' => 'Gudang tidak ditemukan.',

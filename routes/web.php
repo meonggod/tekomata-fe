@@ -15,6 +15,7 @@ use App\Http\Controllers\InternalFxController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductMediaController;
 use App\Http\Controllers\ReferralController;
 use App\Http\Controllers\RegisterController;
 use App\Http\Controllers\ResetPasswordController;
@@ -143,6 +144,14 @@ Route::prefix('app')->middleware('auth.api')->group(function () {
         Route::post('/products/{id}/stock', [ProductController::class, 'adjustStock'])->name('products.stock');
         Route::get('/products/{id}/movements', [ProductController::class, 'movements'])->name('products.movements');
         Route::put('/products/{id}/categories', [ProductController::class, 'updateCategories'])->name('products.categories');
+
+        // Product media gallery — same-origin JSON proxy for the edit-page media
+        // manager (JWT attached server-side, never exposed to the browser).
+        Route::get('/products/{id}/media', [ProductMediaController::class, 'index'])->name('products.media.index');
+        Route::post('/products/{id}/media', [ProductMediaController::class, 'store'])->name('products.media.store');
+        Route::put('/products/{id}/media/reorder', [ProductMediaController::class, 'reorder'])->name('products.media.reorder');
+        Route::post('/products/{id}/media/{mediaId}/thumbnail', [ProductMediaController::class, 'thumbnail'])->name('products.media.thumbnail');
+        Route::delete('/products/{id}/media/{mediaId}', [ProductMediaController::class, 'destroy'])->name('products.media.destroy');
 
         // Categories: list, CRUD, product grouping.
         Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
